@@ -889,49 +889,171 @@
         return { threats, prey };
       }
 
-      function scoreBotMove(move) {
-        const target = state.board[move.to.r][move.to.c];
-        let score = Math.random() * 5;
-
-        if (target.piece) score += 120;
-        if (target.territory === null) score += 32;
-        if (target.territory === 'blue') score += 6;
-
-        const simulated = simulateMove(state.board, move);
-        const moved = simulated[move.to.r][move.to.c].piece;
-        const danger = adjacentThreats(simulated, move.to.r, move.to.c, moved.owner, moved.type);
-        score -= danger.threats * 24;
-        score += danger.prey * 7;
-
-        const centerDistance = Math.abs(move.to.r - 4) + Math.abs(move.to.c - 4);
-        score += (8 - centerDistance) * 1.15;
-
-        let nearbyWhite = 0;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            const r = move.to.r + dr;
-            const c = move.to.c + dc;
-            if (inBounds(r, c) && simulated[r][c].territory === null) nearbyWhite++;
+      function threatenedPieceCount(board, player) {
+        let threatened = 0;
+        for (let r = 0; r < SIZE; r++) {
+          for (let c = 0; c < SIZE; c++) {
+            const piece = board[r][c].piece;
+            if (!piece || piece.owner !== player) continue;
+            if (adjacentThreats(board, r, c, player, piece.type).threats > 0) threatened++;
           }
         }
-        score += nearbyWhite * 1.5;
-        return score;
+        return threatened;
+      }
+
+      function immediateCaptureCount(board, player) {
+        return allLegalMoves(player, board).reduce((count, move) =>
+          count + (board[move.to.r][move.to.c].piece ? 1 : 0), 0
+        );
+      }
+
+      function terminalValue(board) {
+        const score = scores(board);
+        const pieces = pieceCounts(board);
+        if (score.red >= WIN_SCORE || pieces.blue === 0) return 1_000_000;
+        if (score.blue >= WIN_SCORE || pieces.red === 0) return -1_000_000;
+        return null;
+      }
+
+      // Positive values favor red. Keeping pieces alive matters much more than
+      // grabbing one extra square, since losing the entire army is, technically,
+      // a poor territorial policy.
+      function evaluateBoard(board) {
+        const terminal = terminalValue(board);
+        if (terminal !== null) return terminal;
+
+        const score = scores(board);
+        const pieces = pieceCounts(board);
+        const redThreatened = threatenedPieceCount(board, 'red');
+        const blueThreatened = threatenedPieceCount(board, 'blue');
+        const redCaptures = immediateCaptureCount(board, 'red');
+        const blueCaptures = immediateCaptureCount(board, 'blue');
+        const redMobility = allLegalMoves('red', board).length;
+        const blueMobility = allLegalMoves('blue', board).length;
+
+        let value = 0;
+        value += (score.red - score.blue) * 34;
+        value += (pieces.red - pieces.blue) * 520;
+        value += (blueThreatened - redThreatened) * 150;
+        value += (redCaptures - blueCaptures) * 72;
+        value += (redMobility - blueMobility) * 2;
+
+        // A small positional preference keeps pieces useful without making the
+        // bot march blindly into the center like the previous version did.
+        for (let r = 0; r < SIZE; r++) {
+          for (let c = 0; c < SIZE; c++) {
+            const piece = board[r][c].piece;
+            if (!piece) continue;
+            const centerDistance = Math.abs(r - 4) + Math.abs(c - 4);
+            const positional = Math.max(0, 7 - centerDistance);
+            value += piece.owner === 'red' ? positional : -positional;
+          }
+        }
+
+        return value;
+      }
+
+      function moveOrderingScore(board, move, player) {
+        const target = board[move.to.r][move.to.c];
+        const after = simulateMove(board, move);
+        const moved = after[move.to.r][move.to.c].piece;
+        const danger = adjacentThreats(after, move.to.r, move.to.c, player, moved.type);
+        let value = 0;
+
+        if (target.piece) value += 900;
+        if (target.territory === null) value += 90;
+        if (target.territory && target.territory !== player) value += 12;
+        value -= danger.threats * 420;
+        value += danger.prey * 70;
+
+        const enemy = player === 'red' ? 'blue' : 'red';
+        value += threatenedPieceCount(after, enemy) * 55;
+        value -= threatenedPieceCount(after, player) * 95;
+
+        return value;
+      }
+
+      function orderedMoves(board, player, limit = 15) {
+        return allLegalMoves(player, board)
+          .map(move => ({ move, order: moveOrderingScore(board, move, player) }))
+          .sort((a, b) => b.order - a.order)
+          .slice(0, limit)
+          .map(entry => entry.move);
+      }
+
+      function minimax(board, player, movesLeft, depth, alpha, beta) {
+        const terminal = terminalValue(board);
+        if (terminal !== null) return terminal;
+        if (depth <= 0) return evaluateBoard(board);
+
+        const moves = orderedMoves(board, player, depth >= 4 ? 14 : 17);
+        if (!moves.length) {
+          return minimax(
+            board,
+            player === 'red' ? 'blue' : 'red',
+            2,
+            depth - 1,
+            alpha,
+            beta
+          );
+        }
+
+        const maximizing = player === 'red';
+        let best = maximizing ? -Infinity : Infinity;
+
+        for (const move of moves) {
+          const nextBoard = simulateMove(board, move);
+          const turnEnds = movesLeft <= 1;
+          const nextPlayer = turnEnds ? (player === 'red' ? 'blue' : 'red') : player;
+          const nextMovesLeft = turnEnds ? 2 : movesLeft - 1;
+          const value = minimax(nextBoard, nextPlayer, nextMovesLeft, depth - 1, alpha, beta);
+
+          if (maximizing) {
+            best = Math.max(best, value);
+            alpha = Math.max(alpha, best);
+          } else {
+            best = Math.min(best, value);
+            beta = Math.min(beta, best);
+          }
+
+          if (beta <= alpha) break;
+        }
+
+        return best;
       }
 
       function chooseBotMove() {
-        const moves = allLegalMoves('red');
+        const moves = orderedMoves(state.board, 'red', 18);
         if (!moves.length) return null;
-        const ranked = moves
-          .map(move => ({ move, score: scoreBotMove(move) }))
-          .sort((a, b) => b.score - a.score);
-        const pool = ranked.slice(0, Math.min(4, ranked.length));
-        const weights = pool.map((_, i) => pool.length - i);
-        let pick = Math.random() * weights.reduce((a, b) => a + b, 0);
-        for (let i = 0; i < pool.length; i++) {
-          pick -= weights[i];
-          if (pick <= 0) return pool[i].move;
+
+        let bestMove = moves[0];
+        let bestValue = -Infinity;
+
+        // Four individual moves means the search normally sees both red moves
+        // and both of blue's replies. That is enough for it to notice obvious
+        // traps and retreat instead of donating every piece to the human.
+        const searchDepth = 4;
+        for (const move of moves) {
+          const nextBoard = simulateMove(state.board, move);
+          const turnEnds = state.movesLeft <= 1;
+          const nextPlayer = turnEnds ? 'blue' : 'red';
+          const nextMovesLeft = turnEnds ? 2 : state.movesLeft - 1;
+          const value = minimax(
+            nextBoard,
+            nextPlayer,
+            nextMovesLeft,
+            searchDepth - 1,
+            -Infinity,
+            Infinity
+          );
+
+          if (value > bestValue) {
+            bestValue = value;
+            bestMove = move;
+          }
         }
-        return pool[0].move;
+
+        return bestMove;
       }
 
       function startBotTurn() {
