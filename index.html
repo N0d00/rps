@@ -33,7 +33,7 @@
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    button { font: inherit; color: inherit; }
+    button, input { font: inherit; color: inherit; }
 
     .app {
       height: 100vh;
@@ -48,24 +48,12 @@
       height: calc(100vh - 16px);
       min-width: 0;
       padding-top: 4px;
-      color: var(--ink);
     }
 
-    .left-side {
-      padding-right: 16px;
-      border-right: 2px solid var(--ink);
-    }
+    .left-side { padding-right: 16px; border-right: 2px solid var(--ink); }
+    .right-side { padding-left: 16px; border-left: 2px solid var(--ink); }
 
-    .right-side {
-      padding-left: 16px;
-      border-left: 2px solid var(--ink);
-    }
-
-    .section {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--line);
-    }
-
+    .section { padding: 12px 0; border-bottom: 1px solid var(--line); }
     .section:first-child { padding-top: 4px; }
     .section:last-child { border-bottom: 0; }
 
@@ -74,7 +62,7 @@
       max-width: 9ch;
       font-size: clamp(1.55rem, 2.35vw, 2.25rem);
       line-height: .96;
-      letter-spacing: -0.055em;
+      letter-spacing: -.055em;
       text-transform: lowercase;
     }
 
@@ -87,8 +75,7 @@
       text-transform: uppercase;
     }
 
-    .score-line,
-    .match-line {
+    .score-line, .match-line {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
@@ -96,58 +83,21 @@
       font-size: .94rem;
     }
 
-    .score-line + .score-line,
-    .match-line + .match-line { margin-top: 7px; }
-
+    .score-line + .score-line, .match-line + .match-line { margin-top: 7px; }
     .dim { color: var(--muted); }
     .strong { font-weight: 800; }
     .blue-text { color: var(--blue-deep); }
     .red-text { color: var(--red-deep); }
 
-    .score-number {
-      font-size: 1.35rem;
-      font-weight: 900;
-      line-height: 1;
-    }
+    .score-number { font-size: 1.35rem; font-weight: 900; line-height: 1; }
 
-    .turn-line {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 1.05rem;
-      font-weight: 850;
-    }
+    .turn-line { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 850; }
+    .turn-dot { width: 11px; height: 11px; border: 2px solid var(--ink); border-radius: 50%; flex: 0 0 auto; background: var(--blue); }
+    .moves-line { margin-top: 6px; color: var(--muted); font-size: .92rem; }
+    .status-text { color: var(--muted); font-size: .9rem; line-height: 1.35; min-height: 2.45em; }
 
-    .turn-dot {
-      width: 11px;
-      height: 11px;
-      border: 2px solid var(--ink);
-      border-radius: 50%;
-      flex: 0 0 auto;
-      background: var(--blue);
-    }
-
-    .moves-line {
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: .92rem;
-    }
-
-    .status-text {
-      color: var(--muted);
-      font-size: .9rem;
-      line-height: 1.35;
-      min-height: 2.45em;
-    }
-
-    .button-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 11px;
-    }
-
-    .btn,
-    .mode-button {
+    .button-row { display: flex; gap: 8px; margin-top: 11px; }
+    .btn, .mode-button, .small-btn {
       appearance: none;
       border: 2px solid var(--ink);
       background: #fff;
@@ -157,21 +107,14 @@
       cursor: pointer;
       transition: transform .1s ease, background .1s ease;
     }
+    .btn:hover, .mode-button:hover, .small-btn:hover { background: #f5f7fa; }
+    .btn:active, .mode-button:active, .small-btn:active { transform: translateY(1px); }
+    .btn.primary, .small-btn.primary { background: var(--ink); color: #fff; }
+    .btn.danger, .small-btn.danger { color: var(--red-deep); border-color: var(--red-deep); }
+    .small-btn { padding: 5px 9px; font-size: .82rem; }
+    button:disabled { cursor: default; opacity: .48; transform: none !important; }
 
-    .btn:hover,
-    .mode-button:hover { background: #f5f7fa; }
-    .btn:active,
-    .mode-button:active { transform: translateY(1px); }
-    .btn.primary { background: var(--ink); color: #fff; }
-
-    .board-area {
-      height: calc(100vh - 16px);
-      min-width: 0;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-    }
-
+    .board-area { height: calc(100vh - 16px); min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
     .board-wrap {
       width: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
       height: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
@@ -217,109 +160,44 @@
     .cell.last-from { box-shadow: inset 0 0 0 3px rgba(23,32,51,.22); }
     .cell.last-to { box-shadow: inset 0 0 0 4px var(--gold); }
 
-    .cell.valid::after,
-    .cell.valid-capture::after {
-      content: "";
-      position: absolute;
-      pointer-events: none;
-    }
+    .cell.valid::after, .cell.valid-capture::after { content: ""; position: absolute; pointer-events: none; }
+    .cell.valid::after { width: 12px; height: 12px; border-radius: 50%; background: rgba(23,32,51,.38); }
+    .cell.valid-capture::after { inset: 6px; border: 3px dashed rgba(23,32,51,.45); border-radius: 2px; }
 
-    .cell.valid::after {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: rgba(23,32,51,.38);
-    }
-
-    .cell.valid-capture::after {
-      inset: 6px;
-      border: 3px dashed rgba(23,32,51,.45);
-      border-radius: 2px;
-    }
-
-    .piece {
-      width: 70%;
-      height: 70%;
-      pointer-events: none;
-    }
-
+    .piece { width: 70%; height: 70%; pointer-events: none; }
     .piece.blue { color: var(--blue-deep); }
     .piece.red { color: var(--red-deep); }
     .piece .badge { fill: rgba(255,255,255,.9); }
     .piece .main-fill { fill: currentColor; }
     .piece .soft-fill { fill: rgba(255,255,255,.36); }
-    .piece .outline {
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    .piece .detail {
-      fill: none;
-      stroke: rgba(255,255,255,.9);
-      stroke-width: 3.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
+    .piece .outline { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    .piece .detail { fill: none; stroke: rgba(255,255,255,.9); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
 
-    .legend-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      text-align: center;
-    }
-
-    .legend-item {
-      font-size: .78rem;
-      color: var(--muted);
-    }
-
-    .legend-item svg {
-      width: 44px;
-      height: 44px;
-      display: block;
-      margin: 0 auto 4px;
-      color: var(--ink);
-    }
-
-    .beats-line {
-      margin-top: 11px;
-      color: var(--muted);
-      font-size: .88rem;
-      line-height: 1.45;
-    }
-
-    .rules-list {
-      margin: 0;
-      padding-left: 18px;
-      color: var(--muted);
-      font-size: .88rem;
-      line-height: 1.42;
-    }
+    .legend-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+    .legend-item { font-size: .78rem; color: var(--muted); }
+    .legend-item svg { width: 44px; height: 44px; display: block; margin: 0 auto 4px; color: var(--ink); }
+    .beats-line { margin-top: 11px; color: var(--muted); font-size: .88rem; line-height: 1.45; }
+    .rules-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: .88rem; line-height: 1.42; }
     .rules-list li + li { margin-top: 6px; }
     .rules-list strong { color: var(--ink); }
 
-    .start-screen,
-    .winner-overlay {
+    .start-screen, .winner-overlay, .lobby-screen {
       position: fixed;
       inset: 0;
       z-index: 30;
       display: grid;
       place-items: center;
       padding: 24px;
-      background: rgba(255,255,255,.97);
+      background: rgba(255,255,255,.98);
       opacity: 0;
       pointer-events: none;
       transition: opacity .18s ease;
     }
 
-    .start-screen.show,
-    .winner-overlay.show { opacity: 1; pointer-events: auto; }
+    .start-screen.show, .winner-overlay.show, .lobby-screen.show { opacity: 1; pointer-events: auto; }
 
-    .start-panel,
-    .winner-panel {
-      width: min(560px, 100%);
+    .start-panel, .winner-panel {
+      width: min(720px, 100%);
       border: 3px solid var(--ink);
       border-radius: 28px;
       background: #fff;
@@ -327,128 +205,151 @@
       box-shadow: 0 6px 0 rgba(17,24,39,.12);
     }
 
-    .start-panel h1,
-    .winner-panel h2 {
-      margin: 0;
-      font-size: clamp(2.2rem, 5vw, 3.4rem);
-      line-height: .95;
-      letter-spacing: -.05em;
-    }
+    .start-panel h1, .winner-panel h2 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: .95; letter-spacing: -.05em; }
+    .start-panel > p, .winner-panel p { margin: 12px 0 0; color: var(--muted); line-height: 1.45; }
 
-    .start-panel p,
-    .winner-panel p {
-      margin: 12px 0 0;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-
-    .mode-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin: 22px 0 18px;
-    }
-
-    .mode-button {
-      min-height: 92px;
-      border-radius: 14px;
-      text-align: left;
-      padding: 14px;
-    }
+    .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 22px 0 18px; }
+    .mode-button { min-height: 102px; border-radius: 14px; text-align: left; padding: 14px; }
     .mode-button strong { display: block; font-size: 1.05rem; margin-bottom: 6px; }
     .mode-button span { color: var(--muted); font-size: .9rem; line-height: 1.35; }
     .mode-button.selected { background: #f4f7fb; box-shadow: inset 0 0 0 2px var(--ink); }
 
-    .start-actions,
-    .winner-actions { display: flex; gap: 10px; margin-top: 16px; }
-    .start-actions .btn,
-    .winner-actions .btn { flex: 1; min-height: 50px; border-radius: 14px; }
+    .multiplayer-fields { display: none; border-top: 1px solid var(--line); padding-top: 16px; }
+    .multiplayer-fields.show { display: block; }
+    .field-label { display: block; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
+    .text-input { width: 100%; border: 2px solid var(--ink); border-radius: 7px; padding: 10px 12px; background: #fff; outline-offset: 2px; }
+    .field-note, .start-status { margin-top: 7px; color: var(--muted); font-size: .86rem; line-height: 1.35; }
+    .start-status.error { color: var(--red-deep); }
 
-    .winner-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-      color: var(--muted);
-      font-size: .92rem;
-      font-weight: 700;
+    .start-actions, .winner-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .start-actions .btn, .winner-actions .btn { flex: 1; min-height: 50px; border-radius: 14px; }
+
+    .winner-chip { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--muted); font-size: .92rem; font-weight: 700; }
+    .winner-chip-dot { width: 14px; height: 14px; border: 2px solid var(--ink); border-radius: 50%; background: var(--blue); }
+
+    .lobby-panel {
+      width: min(950px, 100%);
+      max-height: min(720px, calc(100vh - 40px));
+      overflow: auto;
+      border: 3px solid var(--ink);
+      border-radius: 6px;
+      background: #fff;
     }
-    .winner-chip-dot {
-      width: 14px;
-      height: 14px;
-      border: 2px solid var(--ink);
-      border-radius: 50%;
-      background: var(--blue);
-    }
+
+    .lobby-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 2px solid var(--ink); }
+    .lobby-header h1 { margin: 0; font-size: 1.7rem; letter-spacing: -.04em; }
+    .lobby-header p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+    .lobby-body { display: grid; grid-template-columns: 1fr 1fr; }
+    .lobby-column { min-width: 0; padding: 18px 20px; }
+    .lobby-column + .lobby-column { border-left: 2px solid var(--ink); }
+    .lobby-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+    .lobby-title h2 { margin: 0; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+    .lobby-title span { color: var(--muted); font-size: .8rem; }
+    .list { border-top: 1px solid var(--line); }
+    .list-row { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 8px 0; }
+    .player-name { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .player-status { color: var(--muted); font-size: .82rem; }
+    .row-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+    .empty-row { padding: 18px 0; color: var(--muted); font-size: .9rem; border-bottom: 1px solid var(--line); }
+    .invite-section + .invite-section { margin-top: 24px; }
+    .lobby-message { min-height: 1.3em; color: var(--muted); font-size: .86rem; margin-top: 12px; }
+    .lobby-message.error { color: var(--red-deep); }
 
     @media (max-width: 900px) {
       html, body { overflow: auto; }
-      .app {
-        height: auto;
-        min-height: 100vh;
-        grid-template-columns: 1fr;
-        padding: 10px 14px 18px;
-      }
+      .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; padding: 10px 14px 18px; }
       .side { height: auto; padding: 0; border: 0; }
       .board-area { height: auto; order: -1; }
-      .board-wrap {
-        width: min(calc(100vw - 28px), 720px);
-        height: min(calc(100vw - 28px), 720px);
-      }
+      .board-wrap { width: min(calc(100vw - 28px), 720px); height: min(calc(100vw - 28px), 720px); }
       .game-title { max-width: none; }
+      .mode-grid { grid-template-columns: 1fr; }
+      .mode-button { min-height: 78px; }
+      .lobby-body { grid-template-columns: 1fr; }
+      .lobby-column + .lobby-column { border-left: 0; border-top: 2px solid var(--ink); }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { transition: none !important; }
-    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
   </style>
 </head>
 <body>
   <div id="startScreen" class="start-screen show" role="dialog" aria-modal="true" aria-labelledby="startTitle">
     <div class="start-panel">
       <h1 id="startTitle">rock paper scissors</h1>
-      <p>a 9 × 9 territory game. blue moves first with 1 move. after that, each turn gets 2 moves.</p>
+      <p>blue moves once on the opening turn. every turn after that has two moves.</p>
       <div class="mode-grid" role="group" aria-label="Choose game mode">
         <button class="mode-button selected" data-mode="bot" type="button">
           <strong>play vs bot</strong>
-          <span>you control blue. red is handled by the local bot.</span>
+          <span>play blue against the local minimax bot.</span>
         </button>
         <button class="mode-button" data-mode="local" type="button">
           <strong>two players</strong>
-          <span>blue and red take turns on the same device.</span>
+          <span>take turns on the same device.</span>
+        </button>
+        <button class="mode-button" data-mode="multiplayer" type="button">
+          <strong>online</strong>
+          <span>join the Puter lobby and invite another player.</span>
         </button>
       </div>
+      <div id="multiplayerFields" class="multiplayer-fields">
+        <label class="field-label" for="usernameInput">temporary username</label>
+        <input id="usernameInput" class="text-input" maxlength="18" autocomplete="off" spellcheck="false" placeholder="3–18 letters, numbers, _ or -" />
+        <div class="field-note">the name exists only while you remain online. multiplayer uses Puter sign-in underneath so people cannot impersonate your current session.</div>
+      </div>
+      <div id="startStatus" class="start-status" aria-live="polite"></div>
       <div class="start-actions">
         <button id="startBtn" class="btn primary" type="button">start game</button>
       </div>
     </div>
   </div>
 
+  <div id="lobbyScreen" class="lobby-screen" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle">
+    <div class="lobby-panel">
+      <header class="lobby-header">
+        <div>
+          <h1 id="lobbyTitle">multiplayer lobby</h1>
+          <p>online as <strong id="lobbyUsername"></strong></p>
+        </div>
+        <button id="leaveLobbyBtn" class="btn" type="button">leave</button>
+      </header>
+      <div class="lobby-body">
+        <section class="lobby-column">
+          <div class="lobby-title"><h2>online players</h2><span id="onlineCount">0 online</span></div>
+          <div id="onlineList" class="list"></div>
+        </section>
+        <section class="lobby-column">
+          <div class="invite-section">
+            <div class="lobby-title"><h2>invitations</h2><span id="incomingCount">0 waiting</span></div>
+            <div id="incomingList" class="list"></div>
+          </div>
+          <div class="invite-section">
+            <div class="lobby-title"><h2>sent</h2></div>
+            <div id="sentList" class="list"></div>
+          </div>
+          <div id="lobbyMessage" class="lobby-message" aria-live="polite"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <main class="app">
     <aside class="side left-side" aria-label="Game information and controls">
-      <section class="section">
-        <h1 class="game-title">rock paper scissors</h1>
-      </section>
-
+      <section class="section"><h1 class="game-title">rock paper scissors</h1></section>
       <section class="section" aria-label="Scores">
         <p class="section-label">score</p>
-        <div class="score-line"><span class="dim">blue</span><span id="blueScore" class="score-number blue-text">6</span></div>
-        <div class="score-line"><span class="dim">red</span><span id="redScore" class="score-number red-text">6</span></div>
+        <div class="score-line"><span id="blueName" class="dim">blue</span><span id="blueScore" class="score-number blue-text">6</span></div>
+        <div class="score-line"><span id="redName" class="dim">red</span><span id="redScore" class="score-number red-text">6</span></div>
       </section>
-
       <section class="section">
         <p class="section-label">turn</p>
         <div id="turnText" class="turn-line"><span class="turn-dot"></span>blue's turn</div>
         <div id="movesText" class="moves-line">1 move left</div>
       </section>
-
       <section class="section">
         <p class="section-label">match</p>
         <div class="match-line"><span class="dim">mode</span><span id="modeLabel" class="strong">vs bot</span></div>
         <div class="match-line"><span class="dim">turn</span><span id="turnNumber" class="strong">1</span></div>
         <div class="match-line"><span class="dim">last</span><span id="lastMoveLabel" class="strong">none</span></div>
       </section>
-
       <section class="section">
         <p class="section-label">status</p>
         <div id="statusLine" class="status-text" aria-live="polite">blue starts. select a piece.</div>
@@ -460,9 +361,7 @@
     </aside>
 
     <section class="board-area" aria-label="Game board section">
-      <div class="board-wrap">
-        <div id="board" class="board" role="grid" aria-label="Rock paper scissors strategy board"></div>
-      </div>
+      <div class="board-wrap"><div id="board" class="board" role="grid" aria-label="Rock paper scissors strategy board"></div></div>
     </section>
 
     <aside class="side right-side" aria-label="Rules and piece info">
@@ -471,7 +370,6 @@
         <div id="legend" class="legend-row"></div>
         <div class="beats-line">rock → scissors<br>scissors → paper<br>paper → rock</div>
       </section>
-
       <section class="section">
         <p class="section-label">rules</p>
         <ol class="rules-list">
@@ -497,10 +395,13 @@
     </div>
   </div>
 
+  <script src="https://js.puter.com/v2/" async></script>
   <script>
     (() => {
       'use strict';
 
+      // Deploy puter-worker.js, then replace this URL with your worker URL.
+      const WORKER_URL = 'https://YOUR-WORKER-NAME.puter.work';
       const SIZE = 9;
       const WIN_SCORE = 41;
       const TYPES = ['rock', 'paper', 'scissors'];
@@ -509,41 +410,61 @@
       const PLAYER_NAME = { blue: 'Blue', red: 'Red' };
       const PLAYER_COLOR = { blue: 'var(--blue)', red: 'var(--red)' };
 
-      const boardEl = document.getElementById('board');
-      const blueScoreEl = document.getElementById('blueScore');
-      const redScoreEl = document.getElementById('redScore');
-      const turnTextEl = document.getElementById('turnText');
-      const movesTextEl = document.getElementById('movesText');
-      const statusEl = document.getElementById('statusLine');
-      const turnNumberEl = document.getElementById('turnNumber');
-      const lastMoveLabelEl = document.getElementById('lastMoveLabel');
-      const modeLabelEl = document.getElementById('modeLabel');
-      const restartBtn = document.getElementById('restartBtn');
-      const menuBtn = document.getElementById('menuBtn');
-      const playAgainBtn = document.getElementById('playAgainBtn');
-      const winnerMenuBtn = document.getElementById('winnerMenuBtn');
-      const winnerOverlay = document.getElementById('winnerOverlay');
-      const winnerTitle = document.getElementById('winnerTitle');
-      const winnerMessage = document.getElementById('winnerMessage');
-      const winnerDot = document.getElementById('winnerDot');
-      const legendEl = document.getElementById('legend');
-      const startScreen = document.getElementById('startScreen');
-      const startBtn = document.getElementById('startBtn');
+      const byId = id => document.getElementById(id);
+      const boardEl = byId('board');
+      const blueScoreEl = byId('blueScore');
+      const redScoreEl = byId('redScore');
+      const blueNameEl = byId('blueName');
+      const redNameEl = byId('redName');
+      const turnTextEl = byId('turnText');
+      const movesTextEl = byId('movesText');
+      const statusEl = byId('statusLine');
+      const turnNumberEl = byId('turnNumber');
+      const lastMoveLabelEl = byId('lastMoveLabel');
+      const modeLabelEl = byId('modeLabel');
+      const restartBtn = byId('restartBtn');
+      const menuBtn = byId('menuBtn');
+      const playAgainBtn = byId('playAgainBtn');
+      const winnerMenuBtn = byId('winnerMenuBtn');
+      const winnerOverlay = byId('winnerOverlay');
+      const winnerTitle = byId('winnerTitle');
+      const winnerMessage = byId('winnerMessage');
+      const winnerDot = byId('winnerDot');
+      const legendEl = byId('legend');
+      const startScreen = byId('startScreen');
+      const startBtn = byId('startBtn');
+      const startStatus = byId('startStatus');
       const modeButtons = Array.from(document.querySelectorAll('.mode-button'));
+      const multiplayerFields = byId('multiplayerFields');
+      const usernameInput = byId('usernameInput');
+      const lobbyScreen = byId('lobbyScreen');
+      const lobbyUsername = byId('lobbyUsername');
+      const onlineList = byId('onlineList');
+      const incomingList = byId('incomingList');
+      const sentList = byId('sentList');
+      const onlineCount = byId('onlineCount');
+      const incomingCount = byId('incomingCount');
+      const lobbyMessage = byId('lobbyMessage');
+      const leaveLobbyBtn = byId('leaveLobbyBtn');
 
       let state;
       let botTimer = null;
+      let syncTimer = null;
       let selectedMode = 'bot';
+      const online = {
+        connected: false,
+        username: '',
+        color: null,
+        gameId: null,
+        version: 0,
+        busy: false,
+        syncing: false,
+      };
 
-      function emptyCell() {
-        return { territory: null, piece: null };
-      }
+      function emptyCell() { return { territory: null, piece: null }; }
 
       function newBoard() {
-        const board = Array.from({ length: SIZE }, () =>
-          Array.from({ length: SIZE }, emptyCell)
-        );
-
+        const board = Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, emptyCell));
         const blueSetup = [
           [3, 1, 'rock'], [3, 2, 'rock'],
           [4, 1, 'paper'], [4, 2, 'paper'],
@@ -554,95 +475,60 @@
           [4, 6, 'paper'], [4, 7, 'paper'],
           [5, 6, 'rock'], [5, 7, 'rock']
         ];
-
-        for (const [r, c, type] of blueSetup) {
-          board[r][c] = { territory: 'blue', piece: { owner: 'blue', type } };
-        }
-        for (const [r, c, type] of redSetup) {
-          board[r][c] = { territory: 'red', piece: { owner: 'red', type } };
-        }
+        for (const [r, c, type] of blueSetup) board[r][c] = { territory: 'blue', piece: { owner: 'blue', type } };
+        for (const [r, c, type] of redSetup) board[r][c] = { territory: 'red', piece: { owner: 'red', type } };
         return board;
       }
 
-      function setModeButtons(mode) {
-        selectedMode = mode;
-        modeButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.mode === mode));
-      }
-
-      function showStartScreen() {
-        setModeButtons(state?.mode || selectedMode);
-        startScreen.classList.add('show');
-      }
-
-      function hideStartScreen() {
-        startScreen.classList.remove('show');
-      }
-
-      function resetGame(mode = selectedMode) {
+      function resetLocalGame(mode = selectedMode) {
         clearTimeout(botTimer);
         state = {
-          board: newBoard(),
-          current: 'blue',
-          movesLeft: 1,
-          selected: null,
-          turnNumber: 1,
-          gameOver: false,
-          botThinking: false,
-          mode,
-          lastMove: null,
-          message: 'Blue starts with one move. Select a piece.'
+          board: newBoard(), current: 'blue', movesLeft: 1, selected: null,
+          turnNumber: 1, gameOver: false, botThinking: false, mode,
+          lastMove: null, message: 'Blue starts. Select a piece.',
+          playerNames: { blue: 'blue', red: mode === 'bot' ? 'bot' : 'red' },
         };
         winnerOverlay.classList.remove('show');
         render();
       }
 
+      function setModeButtons(mode) {
+        selectedMode = mode;
+        modeButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.mode === mode));
+        multiplayerFields.classList.toggle('show', mode === 'multiplayer');
+        startBtn.textContent = mode === 'multiplayer' ? 'join lobby' : 'start game';
+        startStatus.textContent = '';
+        startStatus.classList.remove('error');
+      }
+
+      function showStartScreen() {
+        setModeButtons(state?.mode === 'multiplayer' ? 'multiplayer' : selectedMode);
+        startScreen.classList.add('show');
+      }
+
+      function hideStartScreen() { startScreen.classList.remove('show'); }
+      function showLobby() { lobbyScreen.classList.add('show'); }
+      function hideLobby() { lobbyScreen.classList.remove('show'); }
+
       function iconSvg(type, owner = '') {
         const ownerClass = owner ? ` ${owner}` : '';
-        if (type === 'rock') {
-          return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true">
-            <path class="badge" d="M20 76C8 63 13 37 30 25c17-12 41-9 54 7 11 14 10 34-2 46-15 15-47 14-62-2Z"/>
-            <path class="main-fill" d="M20 71c-7-13-2-34 12-44 15-10 37-8 49 6 10 12 9 29-1 40-13 13-48 12-60-2Z"/>
-            <path class="detail" d="M31 35 44 27l13 6 12-1 8 12M27 61l11-11 16 3 10-9 13 15M42 29l3 20M64 34l-6 18"/>
-          </svg>`;
-        }
-        if (type === 'paper') {
-          return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true">
-            <path class="badge" d="M23 12h42l17 17v57H23z"/>
-            <path class="main-fill" d="M19 8h45l19 19v61H19z"/>
-            <path class="soft-fill" d="M64 8v20h19Z"/>
-            <path class="detail" d="M32 39h38M32 51h38M32 63h31M32 75h24"/>
-          </svg>`;
-        }
-        return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true">
-          <circle class="badge" cx="29" cy="70" r="17"/>
-          <circle class="badge" cx="65" cy="70" r="17"/>
-          <path class="main-fill" d="M37 58 72 13c4-5 12 0 9 6L57 61l-9 13zM57 58 22 14c-4-5-12 0-9 6l24 41 9 13z"/>
-          <circle class="outline" cx="29" cy="70" r="13"/>
-          <circle class="outline" cx="65" cy="70" r="13"/>
-          <path class="detail" d="m42 53 16 13M58 53 43 66"/>
-        </svg>`;
+        if (type === 'rock') return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true"><path class="badge" d="M20 76C8 63 13 37 30 25c17-12 41-9 54 7 11 14 10 34-2 46-15 15-47 14-62-2Z"/><path class="main-fill" d="M20 71c-7-13-2-34 12-44 15-10 37-8 49 6 10 12 9 29-1 40-13 13-48 12-60-2Z"/><path class="detail" d="M31 35 44 27l13 6 12-1 8 12M27 61l11-11 16 3 10-9 13 15M42 29l3 20M64 34l-6 18"/></svg>`;
+        if (type === 'paper') return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true"><path class="badge" d="M23 12h42l17 17v57H23z"/><path class="main-fill" d="M19 8h45l19 19v61H19z"/><path class="soft-fill" d="M64 8v20h19Z"/><path class="detail" d="M32 39h38M32 51h38M32 63h31M32 75h24"/></svg>`;
+        return `<svg class="piece${ownerClass}" viewBox="0 0 100 100" aria-hidden="true"><circle class="badge" cx="29" cy="70" r="17"/><circle class="badge" cx="65" cy="70" r="17"/><path class="main-fill" d="M37 58 72 13c4-5 12 0 9 6L57 61l-9 13zM57 58 22 14c-4-5-12 0-9 6l24 41 9 13z"/><circle class="outline" cx="29" cy="70" r="13"/><circle class="outline" cx="65" cy="70" r="13"/><path class="detail" d="m42 53 16 13M58 53 43 66"/></svg>`;
       }
 
       function buildLegend() {
-        legendEl.innerHTML = TYPES.map(type =>
-          `<div class="legend-item">${iconSvg(type)}<span>${LABELS[type]}</span></div>`
-        ).join('');
+        legendEl.innerHTML = TYPES.map(type => `<div class="legend-item">${iconSvg(type)}<span>${LABELS[type]}</span></div>`).join('');
       }
 
-      function inBounds(r, c) {
-        return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
-      }
-
-      function keyOf(r, c) {
-        return `${r},${c}`;
-      }
+      function inBounds(r, c) { return r >= 0 && r < SIZE && c >= 0 && c < SIZE; }
+      function keyOf(r, c) { return `${r},${c}`; }
 
       function isLegalMove(from, to, board = state.board) {
         if (!from || !to || !inBounds(to.r, to.c)) return false;
         const dr = Math.abs(from.r - to.r);
         const dc = Math.abs(from.c - to.c);
         if (Math.max(dr, dc) !== 1) return false;
-
         const source = board[from.r][from.c];
         const target = board[to.r][to.c];
         if (!source.piece) return false;
@@ -653,59 +539,53 @@
 
       function legalDestinations(from, board = state.board) {
         const moves = [];
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const to = { r: from.r + dr, c: from.c + dc };
-            if (isLegalMove(from, to, board)) moves.push(to);
-          }
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const to = { r: from.r + dr, c: from.c + dc };
+          if (isLegalMove(from, to, board)) moves.push(to);
         }
         return moves;
       }
 
       function allLegalMoves(player, board = state.board) {
         const moves = [];
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            const piece = board[r][c].piece;
-            if (!piece || piece.owner !== player) continue;
-            const from = { r, c };
-            for (const to of legalDestinations(from, board)) moves.push({ from, to });
-          }
+        for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+          const piece = board[r][c].piece;
+          if (!piece || piece.owner !== player) continue;
+          const from = { r, c };
+          for (const to of legalDestinations(from, board)) moves.push({ from, to });
         }
         return moves;
       }
 
       function scores(board = state.board) {
-        let blue = 0;
-        let red = 0;
-        for (const row of board) {
-          for (const cell of row) {
-            if (cell.territory === 'blue') blue++;
-            if (cell.territory === 'red') red++;
-          }
+        let blue = 0, red = 0;
+        for (const row of board) for (const cell of row) {
+          if (cell.territory === 'blue') blue++;
+          if (cell.territory === 'red') red++;
         }
         return { blue, red };
       }
 
       function pieceCounts(board = state.board) {
         const result = { blue: 0, red: 0 };
-        for (const row of board) {
-          for (const cell of row) {
-            if (cell.piece) result[cell.piece.owner]++;
-          }
-        }
+        for (const row of board) for (const cell of row) if (cell.piece) result[cell.piece.owner]++;
         return result;
       }
 
-      function coordinate(r, c) {
-        return `${String.fromCharCode(65 + c)}${r + 1}`;
+      function coordinate(r, c) { return `${String.fromCharCode(65 + c)}${r + 1}`; }
+
+      function canAct() {
+        if (state.gameOver || state.botThinking || online.busy) return false;
+        if (state.mode === 'bot') return state.current === 'blue';
+        if (state.mode === 'multiplayer') return state.current === online.color;
+        return true;
       }
 
       function render() {
         const valid = new Set();
         const captures = new Set();
-        if (state.selected) {
+        if (state.selected && canAct()) {
           for (const to of legalDestinations(state.selected)) {
             valid.add(keyOf(to.r, to.c));
             if (state.board[to.r][to.c].piece) captures.add(keyOf(to.r, to.c));
@@ -713,401 +593,467 @@
         }
 
         const cells = [];
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            const cell = state.board[r][c];
-            const classes = ['cell'];
-            if (cell.territory) classes.push(`territory-${cell.territory}`);
-            if (state.selected && state.selected.r === r && state.selected.c === c) classes.push('selected');
-            if (valid.has(keyOf(r, c))) classes.push(captures.has(keyOf(r, c)) ? 'valid-capture' : 'valid');
-            if (state.lastMove?.from.r === r && state.lastMove?.from.c === c) classes.push('last-from');
-            if (state.lastMove?.to.r === r && state.lastMove?.to.c === c) classes.push('last-to');
-
-            const piece = cell.piece ? iconSvg(cell.piece.type, cell.piece.owner) : '';
-            const labelParts = [coordinate(r, c)];
-            if (cell.territory) labelParts.push(`${cell.territory} territory`);
-            if (cell.piece) labelParts.push(`${cell.piece.owner} ${cell.piece.type}`);
-            cells.push(`<button class="${classes.join(' ')}" role="gridcell" data-r="${r}" data-c="${c}" aria-label="${labelParts.join(', ')}">${piece}</button>`);
-          }
+        for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+          const cell = state.board[r][c];
+          const classes = ['cell'];
+          if (cell.territory) classes.push(`territory-${cell.territory}`);
+          if (state.selected && state.selected.r === r && state.selected.c === c) classes.push('selected');
+          if (valid.has(keyOf(r, c))) classes.push(captures.has(keyOf(r, c)) ? 'valid-capture' : 'valid');
+          if (state.lastMove?.from.r === r && state.lastMove?.from.c === c) classes.push('last-from');
+          if (state.lastMove?.to.r === r && state.lastMove?.to.c === c) classes.push('last-to');
+          const piece = cell.piece ? iconSvg(cell.piece.type, cell.piece.owner) : '';
+          cells.push(`<button class="${classes.join(' ')}" role="gridcell" data-r="${r}" data-c="${c}" aria-label="${coordinate(r,c)}">${piece}</button>`);
         }
         boardEl.innerHTML = cells.join('');
 
         const score = scores();
         blueScoreEl.textContent = score.blue;
         redScoreEl.textContent = score.red;
+        blueNameEl.textContent = state.playerNames?.blue || 'blue';
+        redNameEl.textContent = state.playerNames?.red || 'red';
         turnNumberEl.textContent = state.turnNumber;
-        modeLabelEl.textContent = state.mode === 'bot' ? 'vs bot' : '2 players';
+        modeLabelEl.textContent = state.mode === 'bot' ? 'vs bot' : state.mode === 'local' ? '2 players' : 'online';
         statusEl.textContent = state.message;
-
-        const turnColor = PLAYER_COLOR[state.current];
-        turnTextEl.innerHTML = `<span class="turn-dot" style="background:${turnColor}"></span>${PLAYER_NAME[state.current].toLowerCase()}'s turn`;
-        movesTextEl.textContent = state.botThinking ? 'bot is thinking…' : `${state.movesLeft} move${state.movesLeft === 1 ? '' : 's'} left`;
-
-        if (state.lastMove) {
-          lastMoveLabelEl.textContent = `${coordinate(state.lastMove.from.r, state.lastMove.from.c)} → ${coordinate(state.lastMove.to.r, state.lastMove.to.c)}`;
-        } else {
-          lastMoveLabelEl.textContent = 'none';
-        }
+        const currentName = state.playerNames?.[state.current] || PLAYER_NAME[state.current].toLowerCase();
+        turnTextEl.innerHTML = `<span class="turn-dot" style="background:${PLAYER_COLOR[state.current]}"></span>${currentName}'s turn`;
+        movesTextEl.textContent = state.botThinking ? 'bot is thinking…' : online.busy ? 'sending move…' : `${state.movesLeft} move${state.movesLeft === 1 ? '' : 's'} left`;
+        lastMoveLabelEl.textContent = state.lastMove ? `${coordinate(state.lastMove.from.r, state.lastMove.from.c)} → ${coordinate(state.lastMove.to.r, state.lastMove.to.c)}` : 'none';
+        restartBtn.style.display = state.mode === 'multiplayer' ? 'none' : '';
+        menuBtn.textContent = state.mode === 'multiplayer' ? 'lobby' : 'menu';
       }
 
       function handleCellClick(event) {
         const cellEl = event.target.closest('.cell');
-        if (!cellEl || state.gameOver || state.botThinking) return;
-        if (state.mode === 'bot' && state.current === 'red') return;
-
-        const r = Number(cellEl.dataset.r);
-        const c = Number(cellEl.dataset.c);
+        if (!cellEl || !canAct()) return;
+        const r = Number(cellEl.dataset.r), c = Number(cellEl.dataset.c);
         const clicked = state.board[r][c];
 
         if (state.selected && isLegalMove(state.selected, { r, c })) {
-          performMove(state.selected, { r, c });
+          if (state.mode === 'multiplayer') submitOnlineMove(state.selected, { r, c });
+          else performLocalMove(state.selected, { r, c });
           return;
         }
 
         if (clicked.piece?.owner === state.current) {
           state.selected = { r, c };
-          state.message = `${PLAYER_NAME[state.current]}'s ${LABELS[clicked.piece.type].toLowerCase()} selected at ${coordinate(r, c)}.`;
+          state.message = `${LABELS[clicked.piece.type]} selected at ${coordinate(r, c)}.`;
         } else {
           state.selected = null;
-          if (clicked.piece) {
-            state.message = `that piece cannot be taken by the currently selected one.`;
-          } else {
-            state.message = `select one of ${PLAYER_NAME[state.current].toLowerCase()}'s pieces first.`;
-          }
+          state.message = clicked.piece ? 'That piece cannot be taken by the selected piece.' : `Select one of ${state.playerNames[state.current]}'s pieces.`;
         }
         render();
       }
 
-      function performMove(from, to) {
+      function performLocalMove(from, to) {
         if (!isLegalMove(from, to)) return false;
-
-        const sourceCell = state.board[from.r][from.c];
-        const targetCell = state.board[to.r][to.c];
-        const movingPiece = sourceCell.piece;
-        const captured = targetCell.piece;
-
-        sourceCell.piece = null;
-        targetCell.piece = movingPiece;
-        if (targetCell.territory === null) targetCell.territory = movingPiece.owner;
-
+        const source = state.board[from.r][from.c];
+        const target = state.board[to.r][to.c];
+        const moving = source.piece;
+        const captured = target.piece;
+        source.piece = null;
+        target.piece = moving;
+        if (target.territory === null) target.territory = moving.owner;
         state.lastMove = { from: { ...from }, to: { ...to }, captured: captured?.type ?? null };
         state.selected = null;
         state.movesLeft--;
-
-        const captureText = captured ? ` and captured ${PLAYER_NAME[captured.owner]}'s ${LABELS[captured.type].toLowerCase()}` : '';
-        state.message = `${PLAYER_NAME[movingPiece.owner]}'s ${LABELS[movingPiece.type].toLowerCase()} moved to ${coordinate(to.r, to.c)}${captureText}.`;
-
-        if (checkWinner()) {
-          render();
-          return true;
-        }
-
-        if (state.movesLeft <= 0 || allLegalMoves(state.current).length === 0) {
-          endTurn();
-        } else {
-          render();
-        }
+        state.message = captured ? `${LABELS[moving.type]} captured ${LABELS[captured.type].toLowerCase()}.` : `${LABELS[moving.type]} moved to ${coordinate(to.r, to.c)}.`;
+        if (checkLocalWinner()) { render(); return true; }
+        if (state.movesLeft <= 0 || allLegalMoves(state.current).length === 0) endLocalTurn(); else render();
         return true;
       }
 
-      function endTurn() {
+      function endLocalTurn() {
         state.current = state.current === 'blue' ? 'red' : 'blue';
         state.movesLeft = 2;
         state.turnNumber++;
         state.selected = null;
-        state.message = `${PLAYER_NAME[state.current]}'s turn. choose a piece.`;
+        state.message = `${state.playerNames[state.current]}'s turn.`;
         render();
-
-        if (state.mode === 'bot' && state.current === 'red' && !state.gameOver) {
-          startBotTurn();
-        }
+        if (state.mode === 'bot' && state.current === 'red' && !state.gameOver) startBotTurn();
       }
 
-      function checkWinner() {
-        const score = scores();
-        const pieces = pieceCounts();
-        let winner = null;
-        let reason = '';
+      function showWinner(color, reason) {
+        const name = state.playerNames?.[color] || color;
+        winnerTitle.textContent = `${name} wins`;
+        winnerMessage.textContent = reason;
+        winnerDot.style.background = color === 'blue' ? 'var(--blue)' : 'var(--red)';
+        playAgainBtn.textContent = state.mode === 'multiplayer' ? 'return to lobby' : 'play again';
+        winnerMenuBtn.textContent = state.mode === 'multiplayer' ? 'leave multiplayer' : 'menu';
+        winnerOverlay.classList.add('show');
+      }
 
-        if (score.blue >= WIN_SCORE) {
-          winner = 'blue';
-          reason = `blue claimed ${score.blue} squares.`;
-        } else if (score.red >= WIN_SCORE) {
-          winner = 'red';
-          reason = `red claimed ${score.red} squares.`;
-        } else if (pieces.blue === 0) {
-          winner = 'red';
-          reason = 'blue has no pieces left.';
-        } else if (pieces.red === 0) {
-          winner = 'blue';
-          reason = 'red has no pieces left.';
-        }
-
+      function checkLocalWinner() {
+        const score = scores(), pieces = pieceCounts();
+        let winner = null, reason = '';
+        if (score.blue >= WIN_SCORE) { winner = 'blue'; reason = `${state.playerNames.blue} claimed ${score.blue} squares.`; }
+        else if (score.red >= WIN_SCORE) { winner = 'red'; reason = `${state.playerNames.red} claimed ${score.red} squares.`; }
+        else if (pieces.blue === 0) { winner = 'red'; reason = `${state.playerNames.blue} has no pieces left.`; }
+        else if (pieces.red === 0) { winner = 'blue'; reason = `${state.playerNames.red} has no pieces left.`; }
         if (!winner) return false;
         state.gameOver = true;
         state.botThinking = false;
-        winnerTitle.textContent = `${PLAYER_NAME[winner].toLowerCase()} wins`;
-        winnerMessage.textContent = reason;
-        winnerDot.style.background = winner === 'blue' ? 'var(--blue)' : 'var(--red)';
-        winnerOverlay.classList.add('show');
         state.message = reason;
+        showWinner(winner, reason);
         return true;
       }
 
-      function cloneBoard(board) {
-        return board.map(row => row.map(cell => ({
-          territory: cell.territory,
-          piece: cell.piece ? { ...cell.piece } : null
-        })));
-      }
-
+      function cloneBoard(board) { return board.map(row => row.map(cell => ({ territory: cell.territory, piece: cell.piece ? { ...cell.piece } : null }))); }
       function simulateMove(board, move) {
-        const copy = cloneBoard(board);
-        const source = copy[move.from.r][move.from.c];
-        const target = copy[move.to.r][move.to.c];
-        target.piece = source.piece;
-        source.piece = null;
+        const copy = cloneBoard(board), source = copy[move.from.r][move.from.c], target = copy[move.to.r][move.to.c];
+        target.piece = source.piece; source.piece = null;
         if (target.territory === null) target.territory = target.piece.owner;
         return copy;
       }
 
       function adjacentThreats(board, r, c, owner, type) {
-        let threats = 0;
-        let prey = 0;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nr = r + dr;
-            const nc = c + dc;
-            if (!inBounds(nr, nc)) continue;
-            const piece = board[nr][nc].piece;
-            if (!piece || piece.owner === owner) continue;
-            if (BEATS[piece.type] === type) threats++;
-            if (BEATS[type] === piece.type) prey++;
-          }
+        let threats = 0, prey = 0;
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (!inBounds(nr, nc)) continue;
+          const piece = board[nr][nc].piece;
+          if (!piece || piece.owner === owner) continue;
+          if (BEATS[piece.type] === type) threats++;
+          if (BEATS[type] === piece.type) prey++;
         }
         return { threats, prey };
       }
 
       function threatenedPieceCount(board, player) {
         let threatened = 0;
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            const piece = board[r][c].piece;
-            if (!piece || piece.owner !== player) continue;
-            if (adjacentThreats(board, r, c, player, piece.type).threats > 0) threatened++;
-          }
+        for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+          const piece = board[r][c].piece;
+          if (piece?.owner === player && adjacentThreats(board, r, c, player, piece.type).threats > 0) threatened++;
         }
         return threatened;
       }
 
-      function immediateCaptureCount(board, player) {
-        return allLegalMoves(player, board).reduce((count, move) =>
-          count + (board[move.to.r][move.to.c].piece ? 1 : 0), 0
-        );
-      }
-
+      function immediateCaptureCount(board, player) { return allLegalMoves(player, board).reduce((n, m) => n + (board[m.to.r][m.to.c].piece ? 1 : 0), 0); }
       function terminalValue(board) {
-        const score = scores(board);
-        const pieces = pieceCounts(board);
+        const score = scores(board), pieces = pieceCounts(board);
         if (score.red >= WIN_SCORE || pieces.blue === 0) return 1_000_000;
         if (score.blue >= WIN_SCORE || pieces.red === 0) return -1_000_000;
         return null;
       }
 
-      // Positive values favor red. Keeping pieces alive matters much more than
-      // grabbing one extra square, since losing the entire army is, technically,
-      // a poor territorial policy.
       function evaluateBoard(board) {
         const terminal = terminalValue(board);
         if (terminal !== null) return terminal;
-
-        const score = scores(board);
-        const pieces = pieceCounts(board);
-        const redThreatened = threatenedPieceCount(board, 'red');
-        const blueThreatened = threatenedPieceCount(board, 'blue');
-        const redCaptures = immediateCaptureCount(board, 'red');
-        const blueCaptures = immediateCaptureCount(board, 'blue');
-        const redMobility = allLegalMoves('red', board).length;
-        const blueMobility = allLegalMoves('blue', board).length;
-
-        let value = 0;
-        value += (score.red - score.blue) * 34;
-        value += (pieces.red - pieces.blue) * 520;
-        value += (blueThreatened - redThreatened) * 150;
-        value += (redCaptures - blueCaptures) * 72;
-        value += (redMobility - blueMobility) * 2;
-
-        // A small positional preference keeps pieces useful without making the
-        // bot march blindly into the center like the previous version did.
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            const piece = board[r][c].piece;
-            if (!piece) continue;
-            const centerDistance = Math.abs(r - 4) + Math.abs(c - 4);
-            const positional = Math.max(0, 7 - centerDistance);
-            value += piece.owner === 'red' ? positional : -positional;
-          }
+        const score = scores(board), pieces = pieceCounts(board);
+        const redThreatened = threatenedPieceCount(board, 'red'), blueThreatened = threatenedPieceCount(board, 'blue');
+        const redCaptures = immediateCaptureCount(board, 'red'), blueCaptures = immediateCaptureCount(board, 'blue');
+        let value = (score.red - score.blue) * 34 + (pieces.red - pieces.blue) * 520;
+        value += (blueThreatened - redThreatened) * 150 + (redCaptures - blueCaptures) * 72;
+        value += (allLegalMoves('red', board).length - allLegalMoves('blue', board).length) * 2;
+        for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+          const piece = board[r][c].piece;
+          if (!piece) continue;
+          const positional = Math.max(0, 7 - (Math.abs(r - 4) + Math.abs(c - 4)));
+          value += piece.owner === 'red' ? positional : -positional;
         }
-
         return value;
       }
 
       function moveOrderingScore(board, move, player) {
-        const target = board[move.to.r][move.to.c];
-        const after = simulateMove(board, move);
-        const moved = after[move.to.r][move.to.c].piece;
+        const target = board[move.to.r][move.to.c], after = simulateMove(board, move), moved = after[move.to.r][move.to.c].piece;
         const danger = adjacentThreats(after, move.to.r, move.to.c, player, moved.type);
-        let value = 0;
-
-        if (target.piece) value += 900;
+        let value = target.piece ? 900 : 0;
         if (target.territory === null) value += 90;
-        if (target.territory && target.territory !== player) value += 12;
         value -= danger.threats * 420;
         value += danger.prey * 70;
-
         const enemy = player === 'red' ? 'blue' : 'red';
-        value += threatenedPieceCount(after, enemy) * 55;
-        value -= threatenedPieceCount(after, player) * 95;
-
+        value += threatenedPieceCount(after, enemy) * 55 - threatenedPieceCount(after, player) * 95;
         return value;
       }
 
       function orderedMoves(board, player, limit = 15) {
-        return allLegalMoves(player, board)
-          .map(move => ({ move, order: moveOrderingScore(board, move, player) }))
-          .sort((a, b) => b.order - a.order)
-          .slice(0, limit)
-          .map(entry => entry.move);
+        return allLegalMoves(player, board).map(move => ({ move, order: moveOrderingScore(board, move, player) })).sort((a,b) => b.order - a.order).slice(0, limit).map(x => x.move);
       }
 
       function minimax(board, player, movesLeft, depth, alpha, beta) {
         const terminal = terminalValue(board);
         if (terminal !== null) return terminal;
         if (depth <= 0) return evaluateBoard(board);
-
         const moves = orderedMoves(board, player, depth >= 4 ? 14 : 17);
-        if (!moves.length) {
-          return minimax(
-            board,
-            player === 'red' ? 'blue' : 'red',
-            2,
-            depth - 1,
-            alpha,
-            beta
-          );
-        }
-
+        if (!moves.length) return minimax(board, player === 'red' ? 'blue' : 'red', 2, depth - 1, alpha, beta);
         const maximizing = player === 'red';
         let best = maximizing ? -Infinity : Infinity;
-
         for (const move of moves) {
-          const nextBoard = simulateMove(board, move);
-          const turnEnds = movesLeft <= 1;
+          const nextBoard = simulateMove(board, move), turnEnds = movesLeft <= 1;
           const nextPlayer = turnEnds ? (player === 'red' ? 'blue' : 'red') : player;
-          const nextMovesLeft = turnEnds ? 2 : movesLeft - 1;
-          const value = minimax(nextBoard, nextPlayer, nextMovesLeft, depth - 1, alpha, beta);
-
-          if (maximizing) {
-            best = Math.max(best, value);
-            alpha = Math.max(alpha, best);
-          } else {
-            best = Math.min(best, value);
-            beta = Math.min(beta, best);
-          }
-
+          const value = minimax(nextBoard, nextPlayer, turnEnds ? 2 : movesLeft - 1, depth - 1, alpha, beta);
+          if (maximizing) { best = Math.max(best, value); alpha = Math.max(alpha, best); }
+          else { best = Math.min(best, value); beta = Math.min(beta, best); }
           if (beta <= alpha) break;
         }
-
         return best;
       }
 
       function chooseBotMove() {
         const moves = orderedMoves(state.board, 'red', 18);
         if (!moves.length) return null;
-
-        let bestMove = moves[0];
-        let bestValue = -Infinity;
-
-        // Four individual moves means the search normally sees both red moves
-        // and both of blue's replies. That is enough for it to notice obvious
-        // traps and retreat instead of donating every piece to the human.
-        const searchDepth = 4;
+        let bestMove = moves[0], bestValue = -Infinity;
         for (const move of moves) {
-          const nextBoard = simulateMove(state.board, move);
-          const turnEnds = state.movesLeft <= 1;
-          const nextPlayer = turnEnds ? 'blue' : 'red';
-          const nextMovesLeft = turnEnds ? 2 : state.movesLeft - 1;
-          const value = minimax(
-            nextBoard,
-            nextPlayer,
-            nextMovesLeft,
-            searchDepth - 1,
-            -Infinity,
-            Infinity
-          );
-
-          if (value > bestValue) {
-            bestValue = value;
-            bestMove = move;
-          }
+          const nextBoard = simulateMove(state.board, move), turnEnds = state.movesLeft <= 1;
+          const value = minimax(nextBoard, turnEnds ? 'blue' : 'red', turnEnds ? 2 : state.movesLeft - 1, 3, -Infinity, Infinity);
+          if (value > bestValue) { bestValue = value; bestMove = move; }
         }
-
         return bestMove;
       }
 
       function startBotTurn() {
-        state.botThinking = true;
-        state.message = 'red is thinking.';
-        render();
-
+        state.botThinking = true; state.message = 'bot is thinking.'; render();
         const takeMove = () => {
           if (state.gameOver || state.current !== 'red') return;
           const move = chooseBotMove();
-          if (!move) {
-            state.botThinking = false;
-            endTurn();
-            return;
-          }
-
-          state.botThinking = false;
-          performMove(move.from, move.to);
-
-          if (!state.gameOver && state.current === 'red') {
-            state.botThinking = true;
-            render();
-            botTimer = setTimeout(takeMove, 440);
-          }
+          if (!move) { state.botThinking = false; endLocalTurn(); return; }
+          state.botThinking = false; performLocalMove(move.from, move.to);
+          if (!state.gameOver && state.current === 'red') { state.botThinking = true; render(); botTimer = setTimeout(takeMove, 420); }
         };
-
-        botTimer = setTimeout(takeMove, 460);
+        botTimer = setTimeout(takeMove, 450);
       }
 
-      function startNewGameFromMenu() {
+      function workerConfigured() { return !WORKER_URL.includes('YOUR-WORKER-NAME'); }
+
+      async function workerCall(path, payload = {}) {
+        if (!workerConfigured()) throw Object.assign(new Error('Deploy puter-worker.js and replace WORKER_URL in index.html first.'), { code: 'worker_not_configured' });
+        if (!window.puter?.workers?.exec) throw new Error('Puter.js did not load. Check your connection and reload.');
+        const response = await puter.workers.exec(`${WORKER_URL}${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const text = await response.text();
+        let data;
+        try { data = JSON.parse(text); } catch { throw new Error(`Worker returned an invalid response (${response.status}).`); }
+        if (!response.ok || !data.ok) {
+          const error = Object.assign(new Error(data.message || 'The multiplayer request failed.'), { code: data.error, details: data.details });
+          throw error;
+        }
+        return data;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+      }
+
+      function renderLobby(snapshot) {
+        lobbyUsername.textContent = snapshot.me.username;
+        online.username = snapshot.me.username;
+        onlineCount.textContent = `${snapshot.online.length} online`;
+        incomingCount.textContent = `${snapshot.incoming.length} waiting`;
+
+        onlineList.innerHTML = snapshot.online.length ? snapshot.online.map(player => {
+          const busy = player.status !== 'lobby';
+          return `<div class="list-row"><div><div class="player-name">${escapeHtml(player.username)}</div><div class="player-status">${escapeHtml(player.status)}</div></div><button class="small-btn" data-invite="${escapeHtml(player.username)}" ${busy ? 'disabled' : ''}>invite</button></div>`;
+        }).join('') : '<div class="empty-row">no one else is online.</div>';
+
+        incomingList.innerHTML = snapshot.incoming.length ? snapshot.incoming.map(invite =>
+          `<div class="list-row"><div class="player-name">${escapeHtml(invite.username)}</div><div class="row-actions"><button class="small-btn primary" data-accept="${invite.id}">accept</button><button class="small-btn" data-decline="${invite.id}">decline</button></div></div>`
+        ).join('') : '<div class="empty-row">no invitations.</div>';
+
+        sentList.innerHTML = snapshot.sent.length ? snapshot.sent.map(invite =>
+          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.username)}</div><div class="player-status">waiting</div></div><button class="small-btn" data-cancel="${invite.id}">cancel</button></div>`
+        ).join('') : '<div class="empty-row">none sent.</div>';
+      }
+
+      function applyServerGame(game) {
+        online.gameId = game.id;
+        online.color = game.yourColor;
+        online.version = game.version;
+        state = {
+          board: game.board,
+          current: game.current,
+          movesLeft: game.movesLeft,
+          selected: null,
+          turnNumber: game.turnNumber,
+          gameOver: game.gameOver,
+          botThinking: false,
+          mode: 'multiplayer',
+          lastMove: game.lastMove,
+          playerNames: game.players,
+          message: game.gameOver
+            ? game.winReason
+            : game.current === game.yourColor
+              ? 'Your turn.'
+              : `${game.players[game.current]}'s turn.`,
+        };
         hideStartScreen();
-        resetGame(selectedMode);
+        hideLobby();
+        render();
+        if (game.gameOver) showWinner(game.winner, game.winReason);
+      }
+
+      async function joinMultiplayer() {
+        const username = usernameInput.value.trim();
+        startStatus.textContent = '';
+        startStatus.classList.remove('error');
+        if (!/^[A-Za-z0-9_-]{3,18}$/.test(username)) {
+          startStatus.textContent = 'Use 3–18 letters, numbers, underscores, or hyphens.';
+          startStatus.classList.add('error');
+          return;
+        }
+        startBtn.disabled = true;
+        startStatus.textContent = 'connecting…';
+        try {
+          if (!workerConfigured()) throw new Error('Multiplayer is not configured yet. Deploy the included worker and set WORKER_URL in index.html.');
+          if (!window.puter?.auth) throw new Error('Puter.js is still loading. Wait a moment and try again.');
+          if (!puter.auth.isSignedIn()) await puter.auth.signIn({ attempt_temp_user_creation: true });
+          const data = await workerCall('/api/join', { username });
+          online.connected = true;
+          online.username = username;
+          hideStartScreen();
+          if (data.game) applyServerGame(data.game);
+          else { renderLobby(data.lobby); showLobby(); }
+          startSyncLoop();
+        } catch (error) {
+          startStatus.textContent = error.message;
+          startStatus.classList.add('error');
+        } finally {
+          startBtn.disabled = false;
+        }
+      }
+
+      function startSyncLoop() {
+        clearInterval(syncTimer);
+        syncTimer = setInterval(syncOnline, 2200);
+      }
+
+      function stopSyncLoop() { clearInterval(syncTimer); syncTimer = null; }
+
+      async function syncOnline() {
+        if (!online.connected || online.syncing) return;
+        online.syncing = true;
+        try {
+          const data = await workerCall('/api/sync');
+          if (data.game) applyServerGame(data.game);
+          else {
+            online.gameId = null; online.color = null;
+            winnerOverlay.classList.remove('show');
+            renderLobby(data.lobby);
+            showLobby();
+          }
+          lobbyMessage.textContent = '';
+          lobbyMessage.classList.remove('error');
+        } catch (error) {
+          if (error.code === 'session_expired') {
+            online.connected = false;
+            stopSyncLoop();
+            hideLobby();
+            setModeButtons('multiplayer');
+            showStartScreen();
+            startStatus.textContent = error.message;
+            startStatus.classList.add('error');
+          } else {
+            lobbyMessage.textContent = error.message;
+            lobbyMessage.classList.add('error');
+          }
+        } finally {
+          online.syncing = false;
+        }
+      }
+
+      async function lobbyAction(path, payload, successMessage = '') {
+        lobbyMessage.textContent = 'working…';
+        lobbyMessage.classList.remove('error');
+        try {
+          const data = await workerCall(path, payload);
+          if (data.game) applyServerGame(data.game);
+          else {
+            lobbyMessage.textContent = successMessage;
+            await syncOnline();
+          }
+        } catch (error) {
+          lobbyMessage.textContent = error.message;
+          lobbyMessage.classList.add('error');
+        }
+      }
+
+      async function submitOnlineMove(from, to) {
+        online.busy = true;
+        state.selected = null;
+        state.message = 'Sending move…';
+        render();
+        try {
+          const data = await workerCall('/api/game/move', { gameId: online.gameId, version: online.version, from, to });
+          applyServerGame(data.game);
+        } catch (error) {
+          if (error.details?.game) applyServerGame(error.details.game);
+          else state.message = error.message;
+        } finally {
+          online.busy = false;
+          render();
+        }
+      }
+
+      async function leaveOnlineGame() {
+        if (!online.connected) return;
+        online.busy = true;
+        try {
+          await workerCall('/api/game/leave');
+          winnerOverlay.classList.remove('show');
+          online.gameId = null; online.color = null;
+          await syncOnline();
+        } catch (error) {
+          state.message = error.message;
+          render();
+        } finally { online.busy = false; }
+      }
+
+      async function leaveMultiplayer() {
+        stopSyncLoop();
+        try {
+          if (online.gameId) await workerCall('/api/game/leave');
+          await workerCall('/api/leave-lobby');
+        } catch { /* presence expires automatically if this request fails */ }
+        online.connected = false; online.username = ''; online.gameId = null; online.color = null;
+        hideLobby(); winnerOverlay.classList.remove('show');
+        setModeButtons('multiplayer');
+        showStartScreen();
+      }
+
+      function startSelectedMode() {
+        if (selectedMode === 'multiplayer') { joinMultiplayer(); return; }
+        hideStartScreen();
+        resetLocalGame(selectedMode);
       }
 
       boardEl.addEventListener('click', handleCellClick);
-      restartBtn.addEventListener('click', () => resetGame(state?.mode || selectedMode));
-      menuBtn.addEventListener('click', () => {
-        clearTimeout(botTimer);
-        winnerOverlay.classList.remove('show');
-        showStartScreen();
-      });
-      startBtn.addEventListener('click', startNewGameFromMenu);
-      playAgainBtn.addEventListener('click', () => resetGame(state?.mode || selectedMode));
-      winnerMenuBtn.addEventListener('click', () => {
-        winnerOverlay.classList.remove('show');
-        showStartScreen();
-      });
       modeButtons.forEach(btn => btn.addEventListener('click', () => setModeButtons(btn.dataset.mode)));
-      winnerOverlay.addEventListener('click', event => {
-        if (event.target === winnerOverlay) winnerOverlay.classList.remove('show');
+      startBtn.addEventListener('click', startSelectedMode);
+      usernameInput.addEventListener('keydown', event => { if (event.key === 'Enter' && selectedMode === 'multiplayer') joinMultiplayer(); });
+      restartBtn.addEventListener('click', () => resetLocalGame(state.mode));
+      menuBtn.addEventListener('click', () => state.mode === 'multiplayer' ? leaveOnlineGame() : showStartScreen());
+      leaveLobbyBtn.addEventListener('click', leaveMultiplayer);
+
+      onlineList.addEventListener('click', event => {
+        const button = event.target.closest('[data-invite]');
+        if (button) lobbyAction('/api/invite', { username: button.dataset.invite }, `invited ${button.dataset.invite}.`);
+      });
+      incomingList.addEventListener('click', event => {
+        const accept = event.target.closest('[data-accept]');
+        const decline = event.target.closest('[data-decline]');
+        if (accept) lobbyAction('/api/invite/respond', { inviteId: accept.dataset.accept, accept: true });
+        if (decline) lobbyAction('/api/invite/respond', { inviteId: decline.dataset.decline, accept: false }, 'invitation declined.');
+      });
+      sentList.addEventListener('click', event => {
+        const cancel = event.target.closest('[data-cancel]');
+        if (cancel) lobbyAction('/api/invite/cancel', { inviteId: cancel.dataset.cancel }, 'invitation cancelled.');
       });
 
+      playAgainBtn.addEventListener('click', () => {
+        if (state.mode === 'multiplayer') leaveOnlineGame();
+        else resetLocalGame(state.mode);
+      });
+      winnerMenuBtn.addEventListener('click', () => {
+        if (state.mode === 'multiplayer') leaveMultiplayer();
+        else { winnerOverlay.classList.remove('show'); showStartScreen(); }
+      });
+      winnerOverlay.addEventListener('click', event => { if (event.target === winnerOverlay && state.mode !== 'multiplayer') winnerOverlay.classList.remove('show'); });
+
       buildLegend();
-      resetGame(selectedMode);
+      resetLocalGame('bot');
+      setModeButtons('bot');
       showStartScreen();
     })();
   </script>
