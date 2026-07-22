@@ -287,13 +287,13 @@
         </button>
         <button class="mode-button" data-mode="multiplayer" type="button">
           <strong>online</strong>
-          <span>join the Puter lobby and invite another player.</span>
+          <span>join the realtime lobby and invite another player.</span>
         </button>
       </div>
       <div id="multiplayerFields" class="multiplayer-fields">
         <label class="field-label" for="usernameInput">temporary username</label>
         <input id="usernameInput" class="text-input" maxlength="18" autocomplete="off" spellcheck="false" placeholder="3–18 letters, numbers, _ or -" />
-        <div class="field-note">the name exists only while you remain online. multiplayer uses Puter sign-in underneath so people cannot impersonate your current session.</div>
+        <div class="field-note">no account or password. the username exists only while this tab is online.</div>
       </div>
       <div id="startStatus" class="start-status" aria-live="polite"></div>
       <div class="start-actions">
@@ -395,13 +395,14 @@
     </div>
   </div>
 
-  <script src="https://js.puter.com/v2/"></script>
-  <script>
+  <script type="module">
+    import { init } from "https://cdn.jsdelivr.net/npm/@instantdb/core@1.0.40/+esm";
     (() => {
       'use strict';
 
-      // Puter multiplayer worker deployed at rps.puter.work.
-      const WORKER_URL = 'https://rps.puter.work';
+      // Paste the App ID from https://instantdb.com/dash here.
+      const INSTANT_APP_ID = 'b12d69ed-3618-4827-92b0-8c123f4eb876';
+      let instantDb = null;
       const SIZE = 9;
       const WIN_SCORE = 41;
       const TYPES = ['rock', 'paper', 'scissors'];
@@ -449,16 +450,31 @@
 
       let state;
       let botTimer = null;
-      let syncTimer = null;
       let selectedMode = 'bot';
       const online = {
         connected: false,
         username: '',
+        usernameKey: '',
+        peerId: '',
         color: null,
         gameId: null,
         version: 0,
         busy: false,
-        syncing: false,
+        lobbyRoom: null,
+        lobbyUnsubPresence: null,
+        lobbyUnsubTopic: null,
+        lobbyPresence: null,
+        incoming: [],
+        sent: [],
+        gameRoom: null,
+        gameUnsubPresence: null,
+        gameUnsubState: null,
+        gameUnsubForfeit: null,
+        gamePresence: null,
+        opponentPeerId: null,
+        opponentName: '',
+        opponentSeen: false,
+        disconnectTimer: null,
       };
 
       function emptyCell() { return { territory: null, piece: null }; }
@@ -813,75 +829,179 @@
         botTimer = setTimeout(takeMove, 450);
       }
 
-      function workerConfigured() { return !WORKER_URL.includes('YOUR-WORKER-NAME'); }
+      function instantConfigured() {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(INSTANT_APP_ID);
+      }
 
-      async function workerCall(path, payload = {}) {
-        if (!workerConfigured()) throw Object.assign(new Error('Deploy puter-worker.js and replace WORKER_URL in index.html first.'), { code: 'worker_not_configured' });
-        if (!window.puter?.workers?.exec) throw new Error('Puter.js did not load. Check your connection and reload.');
-        const response = await puter.workers.exec(`${WORKER_URL}${path}`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const text = await response.text();
-        let data;
-        try { data = JSON.parse(text); } catch { throw new Error(`Worker returned an invalid response (${response.status}).`); }
-        if (!response.ok || !data.ok) {
-          const error = Object.assign(new Error(data.message || 'The multiplayer request failed.'), { code: data.error, details: data.details });
-          throw error;
+      function uid() {
+        return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      async function waitFor(test, timeout = 6000, interval = 40) {
+        const started = Date.now();
+        while (!test()) {
+          if (Date.now() - started > timeout) throw new Error('The realtime connection took too long. Reload and try again.');
+          await wait(interval);
         }
-        return data;
+      }
+
+      async function getInstantDb() {
+        if (!instantConfigured()) {
+          throw new Error('Add your InstantDB app ID near the top of index.html first.');
+        }
+        if (!instantDb) instantDb = init({ appId: INSTANT_APP_ID });
+        const user = await instantDb.getAuth();
+        if (!user) await instantDb.auth.signInAsGuest();
+        return instantDb;
       }
 
       function escapeHtml(value) {
         return String(value).replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
       }
 
-      function renderLobby(snapshot) {
-        lobbyUsername.textContent = snapshot.me.username;
-        online.username = snapshot.me.username;
-        onlineCount.textContent = `${snapshot.online.length} online`;
-        incomingCount.textContent = `${snapshot.incoming.length} waiting`;
+      function lobbyPeers() {
+        return Object.values(online.lobbyPresence?.peers || {})
+          .filter(peer => peer.username && peer.status !== 'claiming');
+      }
 
-        onlineList.innerHTML = snapshot.online.length ? snapshot.online.map(player => {
+      function peerById(peerId) {
+        return (online.lobbyPresence?.peers || {})[peerId] || null;
+      }
+
+      function pruneInvites() {
+        const now = Date.now();
+        const validPeer = peerId => {
+          const peer = peerById(peerId);
+          return peer && peer.status === 'lobby';
+        };
+        online.incoming = online.incoming.filter(invite => now - invite.createdAt < 120000 && validPeer(invite.fromPeerId));
+        online.sent = online.sent.filter(invite => now - invite.createdAt < 120000 && validPeer(invite.toPeerId));
+      }
+
+      function renderLobby() {
+        if (!online.connected) return;
+        pruneInvites();
+        const players = lobbyPeers().sort((a, b) => a.username.localeCompare(b.username));
+        lobbyUsername.textContent = online.username;
+        onlineCount.textContent = `${players.length + 1} online`;
+        incomingCount.textContent = `${online.incoming.length} waiting`;
+
+        onlineList.innerHTML = players.length ? players.map(player => {
           const busy = player.status !== 'lobby';
-          return `<div class="list-row"><div><div class="player-name">${escapeHtml(player.username)}</div><div class="player-status">${escapeHtml(player.status)}</div></div><button class="small-btn" data-invite="${escapeHtml(player.username)}" ${busy ? 'disabled' : ''}>invite</button></div>`;
+          return `<div class="list-row"><div><div class="player-name">${escapeHtml(player.username)}</div><div class="player-status">${busy ? 'playing' : 'available'}</div></div><button class="small-btn" data-invite-peer="${escapeHtml(player.peerId)}" data-invite-name="${escapeHtml(player.username)}" ${busy ? 'disabled' : ''}>invite</button></div>`;
         }).join('') : '<div class="empty-row">no one else is online.</div>';
 
-        incomingList.innerHTML = snapshot.incoming.length ? snapshot.incoming.map(invite =>
-          `<div class="list-row"><div class="player-name">${escapeHtml(invite.username)}</div><div class="row-actions"><button class="small-btn primary" data-accept="${invite.id}">accept</button><button class="small-btn" data-decline="${invite.id}">decline</button></div></div>`
+        incomingList.innerHTML = online.incoming.length ? online.incoming.map(invite =>
+          `<div class="list-row"><div class="player-name">${escapeHtml(invite.fromUsername)}</div><div class="row-actions"><button class="small-btn primary" data-accept="${escapeHtml(invite.id)}">accept</button><button class="small-btn" data-decline="${escapeHtml(invite.id)}">decline</button></div></div>`
         ).join('') : '<div class="empty-row">no invitations.</div>';
 
-        sentList.innerHTML = snapshot.sent.length ? snapshot.sent.map(invite =>
-          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.username)}</div><div class="player-status">waiting</div></div><button class="small-btn" data-cancel="${invite.id}">cancel</button></div>`
+        sentList.innerHTML = online.sent.length ? online.sent.map(invite =>
+          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.toUsername)}</div><div class="player-status">waiting</div></div><button class="small-btn" data-cancel="${escapeHtml(invite.id)}">cancel</button></div>`
         ).join('') : '<div class="empty-row">none sent.</div>';
       }
 
-      function applyServerGame(game) {
-        online.gameId = game.id;
-        online.color = game.yourColor;
-        online.version = game.version;
-        state = {
-          board: game.board,
-          current: game.current,
-          movesLeft: game.movesLeft,
-          selected: null,
-          turnNumber: game.turnNumber,
-          gameOver: game.gameOver,
-          botThinking: false,
-          mode: 'multiplayer',
-          lastMove: game.lastMove,
-          playerNames: game.players,
-          message: game.gameOver
-            ? game.winReason
-            : game.current === game.yourColor
-              ? 'Your turn.'
-              : `${game.players[game.current]}'s turn.`,
-        };
-        hideStartScreen();
-        hideLobby();
-        render();
-        if (game.gameOver) showWinner(game.winner, game.winReason);
+      function publishLobbyPresence(data) {
+        online.lobbyRoom?.publishPresence(data);
+      }
+
+      function handleLobbyPresence(response) {
+        online.lobbyPresence = response;
+        if (response.user?.peerId) online.peerId = response.user.peerId;
+        if (online.connected) renderLobby();
+      }
+
+      function handleLobbyEvent(event, peer) {
+        if (!event || !peer?.peerId || event.toPeerId !== online.peerId) return;
+        const sender = peerById(peer.peerId) || peer;
+
+        if (event.type === 'invite') {
+          if (sender.status !== 'lobby' || !sender.username || online.gameId) return;
+          if (online.incoming.some(invite => invite.id === event.inviteId)) return;
+          online.incoming.push({
+            id: event.inviteId,
+            fromPeerId: peer.peerId,
+            fromUsername: sender.username,
+            createdAt: Number(event.createdAt) || Date.now(),
+          });
+          lobbyMessage.textContent = `${sender.username} invited you.`;
+          renderLobby();
+          return;
+        }
+
+        if (event.type === 'invite-cancel') {
+          online.incoming = online.incoming.filter(invite => invite.id !== event.inviteId);
+          renderLobby();
+          return;
+        }
+
+        if (event.type === 'invite-response') {
+          const sent = online.sent.find(invite => invite.id === event.inviteId && invite.toPeerId === peer.peerId);
+          if (!sent) return;
+          online.sent = online.sent.filter(invite => invite.id !== event.inviteId);
+          if (!event.accepted) {
+            lobbyMessage.textContent = `${sent.toUsername} declined.`;
+            renderLobby();
+            return;
+          }
+          startOnlineGame({
+            gameId: event.gameId,
+            color: 'blue',
+            opponentPeerId: peer.peerId,
+            opponentName: sent.toUsername,
+            snapshot: event.snapshot,
+          });
+        }
+      }
+
+      async function claimUsername(username) {
+        const db = await getInstantDb();
+        const usernameKey = username.toLowerCase();
+        const room = db.joinRoom('rps-lobby', 'global', {
+          initialPresence: {
+            username,
+            usernameKey,
+            status: 'claiming',
+            gameId: '',
+            color: '',
+          },
+        });
+
+        online.lobbyRoom = room;
+        online.lobbyUnsubPresence = room.subscribePresence({}, handleLobbyPresence);
+        online.lobbyUnsubTopic = room.subscribeTopic('lobby-event', handleLobbyEvent);
+
+        await waitFor(() => online.peerId && online.lobbyPresence && !online.lobbyPresence.isLoading);
+        await wait(650);
+
+        const peers = Object.values(online.lobbyPresence?.peers || {})
+          .filter(peer => peer.usernameKey === usernameKey);
+        const established = peers.filter(peer => peer.status && peer.status !== 'claiming');
+        if (established.length) throw new Error('That username is already online.');
+
+        const claimants = [
+          { peerId: online.peerId, status: 'claiming' },
+          ...peers.filter(peer => peer.status === 'claiming'),
+        ].sort((a, b) => a.peerId.localeCompare(b.peerId));
+
+        if (claimants[0]?.peerId !== online.peerId) throw new Error('That username was just taken.');
+
+        room.publishPresence({ username, usernameKey, status: 'lobby', gameId: '', color: '' });
+        await wait(180);
+      }
+
+      function cleanupLobbyRoom() {
+        online.lobbyUnsubPresence?.();
+        online.lobbyUnsubTopic?.();
+        online.lobbyRoom?.leaveRoom();
+        online.lobbyUnsubPresence = null;
+        online.lobbyUnsubTopic = null;
+        online.lobbyRoom = null;
+        online.lobbyPresence = null;
+        online.peerId = '';
       }
 
       async function joinMultiplayer() {
@@ -893,20 +1013,24 @@
           startStatus.classList.add('error');
           return;
         }
+
         startBtn.disabled = true;
         startStatus.textContent = 'connecting…';
         try {
-          if (!workerConfigured()) throw new Error('Multiplayer is not configured yet. Deploy the included worker and set WORKER_URL in index.html.');
-          if (!window.puter?.auth) throw new Error('Puter.js is still loading. Wait a moment and try again.');
-          if (!puter.auth.isSignedIn()) await puter.auth.signIn({ attempt_temp_user_creation: true });
-          const data = await workerCall('/api/join', { username });
-          online.connected = true;
+          cleanupLobbyRoom();
           online.username = username;
+          online.usernameKey = username.toLowerCase();
+          await claimUsername(username);
+          online.connected = true;
+          online.incoming = [];
+          online.sent = [];
           hideStartScreen();
-          if (data.game) applyServerGame(data.game);
-          else { renderLobby(data.lobby); showLobby(); }
-          startSyncLoop();
+          renderLobby();
+          showLobby();
+          lobbyMessage.textContent = '';
         } catch (error) {
+          cleanupLobbyRoom();
+          online.connected = false;
           startStatus.textContent = error.message;
           startStatus.classList.add('error');
         } finally {
@@ -914,100 +1038,333 @@
         }
       }
 
-      function startSyncLoop() {
-        clearInterval(syncTimer);
-        syncTimer = setInterval(syncOnline, 2200);
-      }
-
-      function stopSyncLoop() { clearInterval(syncTimer); syncTimer = null; }
-
-      async function syncOnline() {
-        if (!online.connected || online.syncing) return;
-        online.syncing = true;
-        try {
-          const data = await workerCall('/api/sync');
-          if (data.game) applyServerGame(data.game);
-          else {
-            online.gameId = null; online.color = null;
-            winnerOverlay.classList.remove('show');
-            renderLobby(data.lobby);
-            showLobby();
-          }
-          lobbyMessage.textContent = '';
-          lobbyMessage.classList.remove('error');
-        } catch (error) {
-          if (error.code === 'session_expired') {
-            online.connected = false;
-            stopSyncLoop();
-            hideLobby();
-            setModeButtons('multiplayer');
-            showStartScreen();
-            startStatus.textContent = error.message;
-            startStatus.classList.add('error');
-          } else {
-            lobbyMessage.textContent = error.message;
-            lobbyMessage.classList.add('error');
-          }
-        } finally {
-          online.syncing = false;
+      function sendInvite(peerId, username) {
+        if (!online.connected || online.gameId) return;
+        const peer = peerById(peerId);
+        if (!peer || peer.status !== 'lobby') {
+          lobbyMessage.textContent = 'That player is no longer available.';
+          renderLobby();
+          return;
         }
-      }
-
-      async function lobbyAction(path, payload, successMessage = '') {
-        lobbyMessage.textContent = 'working…';
-        lobbyMessage.classList.remove('error');
-        try {
-          const data = await workerCall(path, payload);
-          if (data.game) applyServerGame(data.game);
-          else {
-            lobbyMessage.textContent = successMessage;
-            await syncOnline();
-          }
-        } catch (error) {
-          lobbyMessage.textContent = error.message;
-          lobbyMessage.classList.add('error');
+        if (online.sent.some(invite => invite.toPeerId === peerId)) {
+          lobbyMessage.textContent = `You already invited ${username}.`;
+          return;
         }
+        const invite = { id: uid(), toPeerId: peerId, toUsername: username, createdAt: Date.now() };
+        online.sent.push(invite);
+        online.lobbyRoom.publishTopic('lobby-event', {
+          type: 'invite',
+          inviteId: invite.id,
+          toPeerId: peerId,
+          createdAt: invite.createdAt,
+        });
+        lobbyMessage.textContent = `invited ${username}.`;
+        renderLobby();
       }
 
-      async function submitOnlineMove(from, to) {
-        online.busy = true;
-        state.selected = null;
-        state.message = 'Sending move…';
+      function cancelInvite(inviteId) {
+        const invite = online.sent.find(item => item.id === inviteId);
+        if (!invite) return;
+        online.lobbyRoom.publishTopic('lobby-event', {
+          type: 'invite-cancel',
+          inviteId,
+          toPeerId: invite.toPeerId,
+        });
+        online.sent = online.sent.filter(item => item.id !== inviteId);
+        renderLobby();
+      }
+
+      function declineInvite(inviteId) {
+        const invite = online.incoming.find(item => item.id === inviteId);
+        if (!invite) return;
+        online.lobbyRoom.publishTopic('lobby-event', {
+          type: 'invite-response',
+          inviteId,
+          toPeerId: invite.fromPeerId,
+          accepted: false,
+        });
+        online.incoming = online.incoming.filter(item => item.id !== inviteId);
+        renderLobby();
+      }
+
+      function createInitialSnapshot(gameId, blueName, redName) {
+        return {
+          gameId,
+          version: 0,
+          board: newBoard(),
+          current: 'blue',
+          movesLeft: 1,
+          turnNumber: 1,
+          gameOver: false,
+          winner: null,
+          winReason: '',
+          lastMove: null,
+          playerNames: { blue: blueName, red: redName },
+        };
+      }
+
+      function acceptInvite(inviteId) {
+        const invite = online.incoming.find(item => item.id === inviteId);
+        if (!invite || online.gameId) return;
+        const sender = peerById(invite.fromPeerId);
+        if (!sender || sender.status !== 'lobby') {
+          online.incoming = online.incoming.filter(item => item.id !== inviteId);
+          lobbyMessage.textContent = 'That player is no longer available.';
+          renderLobby();
+          return;
+        }
+
+        const gameId = uid();
+        const snapshot = createInitialSnapshot(gameId, invite.fromUsername, online.username);
+        online.lobbyRoom.publishTopic('lobby-event', {
+          type: 'invite-response',
+          inviteId,
+          toPeerId: invite.fromPeerId,
+          accepted: true,
+          gameId,
+          snapshot,
+        });
+        startOnlineGame({
+          gameId,
+          color: 'red',
+          opponentPeerId: invite.fromPeerId,
+          opponentName: invite.fromUsername,
+          snapshot,
+        });
+      }
+
+      function snapshotFromState() {
+        return {
+          gameId: online.gameId,
+          version: online.version,
+          board: cloneBoard(state.board),
+          current: state.current,
+          movesLeft: state.movesLeft,
+          turnNumber: state.turnNumber,
+          gameOver: state.gameOver,
+          winner: state.winner || null,
+          winReason: state.winReason || '',
+          lastMove: state.lastMove ? JSON.parse(JSON.stringify(state.lastMove)) : null,
+          playerNames: { ...state.playerNames },
+        };
+      }
+
+      function validSnapshot(snapshot) {
+        return snapshot && snapshot.gameId === online.gameId && Array.isArray(snapshot.board) && snapshot.board.length === SIZE && Number.isInteger(snapshot.version);
+      }
+
+      function applyOnlineSnapshot(snapshot, force = false) {
+        if (!validSnapshot(snapshot)) return;
+        if (!force && snapshot.version <= online.version) return;
+        online.version = snapshot.version;
+        state = {
+          board: cloneBoard(snapshot.board),
+          current: snapshot.current,
+          movesLeft: snapshot.movesLeft,
+          selected: null,
+          turnNumber: snapshot.turnNumber,
+          gameOver: Boolean(snapshot.gameOver),
+          winner: snapshot.winner || null,
+          winReason: snapshot.winReason || '',
+          botThinking: false,
+          mode: 'multiplayer',
+          lastMove: snapshot.lastMove || null,
+          playerNames: { ...snapshot.playerNames },
+          message: snapshot.gameOver
+            ? snapshot.winReason
+            : snapshot.current === online.color
+              ? 'Your turn.'
+              : `${snapshot.playerNames[snapshot.current]}'s turn.`,
+        };
+        hideStartScreen();
+        hideLobby();
         render();
+        if (state.gameOver && state.winner) showWinner(state.winner, state.winReason);
+        else winnerOverlay.classList.remove('show');
+      }
+
+      function cleanupGameRoom() {
+        clearTimeout(online.disconnectTimer);
+        online.gameUnsubPresence?.();
+        online.gameUnsubState?.();
+        online.gameUnsubForfeit?.();
+        online.gameRoom?.leaveRoom();
+        online.gameUnsubPresence = null;
+        online.gameUnsubState = null;
+        online.gameUnsubForfeit = null;
+        online.gameRoom = null;
+        online.gamePresence = null;
+        online.opponentSeen = false;
+      }
+
+      function handleGamePresence(response) {
+        online.gamePresence = response;
+        const opponent = response.peers?.[online.opponentPeerId];
+        if (opponent) {
+          online.opponentSeen = true;
+          clearTimeout(online.disconnectTimer);
+          if (opponent.snapshot) {
+            try { applyOnlineSnapshot(JSON.parse(opponent.snapshot)); } catch { /* ignore malformed recovery data */ }
+          }
+          return;
+        }
+
+        if (online.opponentSeen && !state.gameOver && !online.disconnectTimer) {
+          online.disconnectTimer = setTimeout(() => {
+            const stillMissing = !online.gamePresence?.peers?.[online.opponentPeerId];
+            if (stillMissing && state.mode === 'multiplayer' && !state.gameOver) {
+              state.gameOver = true;
+              state.winner = online.color;
+              state.winReason = `${online.opponentName} disconnected.`;
+              state.message = state.winReason;
+              online.version++;
+              render();
+              showWinner(online.color, state.winReason);
+              publishOnlineSnapshot();
+            }
+          }, 6000);
+        }
+      }
+
+      function startOnlineGame({ gameId, color, opponentPeerId, opponentName, snapshot }) {
+        cleanupGameRoom();
+        online.incoming = [];
+        online.sent = [];
+        online.gameId = gameId;
+        online.color = color;
+        online.opponentPeerId = opponentPeerId;
+        online.opponentName = opponentName;
+        online.version = -1;
+        online.opponentSeen = false;
+        winnerOverlay.classList.remove('show');
+
+        publishLobbyPresence({ status: 'playing', gameId, color });
+        const room = instantDb.joinRoom('rps-game', gameId, {
+          initialPresence: {
+            username: online.username,
+            color,
+            gameId,
+            version: snapshot.version,
+            snapshot: JSON.stringify(snapshot),
+          },
+        });
+        online.gameRoom = room;
+        online.gameUnsubState = room.subscribeTopic('state', (remoteSnapshot, peer) => {
+          if (peer?.peerId !== online.opponentPeerId) return;
+          applyOnlineSnapshot(remoteSnapshot);
+        });
+        online.gameUnsubForfeit = room.subscribeTopic('forfeit', (event, peer) => {
+          if (peer?.peerId !== online.opponentPeerId || state.gameOver) return;
+          state.gameOver = true;
+          state.winner = online.color;
+          state.winReason = event?.reason || `${online.opponentName} left the game.`;
+          state.message = state.winReason;
+          online.version++;
+          render();
+          showWinner(online.color, state.winReason);
+          publishOnlineSnapshot();
+        });
+        online.gameUnsubPresence = room.subscribePresence({}, handleGamePresence);
+        applyOnlineSnapshot(snapshot, true);
+        state.message = color === 'blue' ? 'Your turn.' : `Waiting for ${opponentName}.`;
+        render();
+        room.publishPresence({ version: online.version, snapshot: JSON.stringify(snapshot) });
+      }
+
+      function determineOnlineWinner() {
+        const score = scores();
+        const pieces = pieceCounts();
+        if (score.blue >= WIN_SCORE) return { winner: 'blue', reason: `${state.playerNames.blue} claimed ${score.blue} squares.` };
+        if (score.red >= WIN_SCORE) return { winner: 'red', reason: `${state.playerNames.red} claimed ${score.red} squares.` };
+        if (pieces.blue === 0) return { winner: 'red', reason: `${state.playerNames.blue} has no pieces left.` };
+        if (pieces.red === 0) return { winner: 'blue', reason: `${state.playerNames.red} has no pieces left.` };
+        return null;
+      }
+
+      function publishOnlineSnapshot() {
+        if (!online.gameRoom) return;
+        const snapshot = snapshotFromState();
         try {
-          const data = await workerCall('/api/game/move', { gameId: online.gameId, version: online.version, from, to });
-          applyServerGame(data.game);
-        } catch (error) {
-          if (error.details?.game) applyServerGame(error.details.game);
-          else state.message = error.message;
-        } finally {
-          online.busy = false;
+          online.gameRoom.publishTopic('state', snapshot);
+          online.gameRoom.publishPresence({ version: snapshot.version, snapshot: JSON.stringify(snapshot) });
+        } catch {
+          state.message = 'The move is shown locally, but the connection is having trouble.';
           render();
         }
       }
 
-      async function leaveOnlineGame() {
-        if (!online.connected) return;
-        online.busy = true;
-        try {
-          await workerCall('/api/game/leave');
-          winnerOverlay.classList.remove('show');
-          online.gameId = null; online.color = null;
-          await syncOnline();
-        } catch (error) {
-          state.message = error.message;
-          render();
-        } finally { online.busy = false; }
+      function submitOnlineMove(from, to) {
+        if (!canAct() || !isLegalMove(from, to)) return;
+
+        const source = state.board[from.r][from.c];
+        const target = state.board[to.r][to.c];
+        const moving = source.piece;
+        const captured = target.piece;
+
+        source.piece = null;
+        target.piece = moving;
+        if (target.territory === null) target.territory = moving.owner;
+        state.lastMove = { from: { ...from }, to: { ...to }, captured: captured?.type ?? null };
+        state.selected = null;
+        state.movesLeft--;
+        state.message = captured
+          ? `${LABELS[moving.type]} captured ${LABELS[captured.type].toLowerCase()}.`
+          : `${LABELS[moving.type]} moved to ${coordinate(to.r, to.c)}.`;
+
+        const result = determineOnlineWinner();
+        if (result) {
+          state.gameOver = true;
+          state.winner = result.winner;
+          state.winReason = result.reason;
+          state.message = result.reason;
+        } else if (state.movesLeft <= 0 || allLegalMoves(state.current).length === 0) {
+          state.current = state.current === 'blue' ? 'red' : 'blue';
+          state.movesLeft = 2;
+          state.turnNumber++;
+          state.message = state.current === online.color ? 'Your turn.' : `${state.playerNames[state.current]}'s turn.`;
+        }
+
+        online.version++;
+        render();
+        if (state.gameOver) showWinner(state.winner, state.winReason);
+        publishOnlineSnapshot();
       }
 
-      async function leaveMultiplayer() {
-        stopSyncLoop();
-        try {
-          if (online.gameId) await workerCall('/api/game/leave');
-          await workerCall('/api/leave-lobby');
-        } catch { /* presence expires automatically if this request fails */ }
-        online.connected = false; online.username = ''; online.gameId = null; online.color = null;
-        hideLobby(); winnerOverlay.classList.remove('show');
+      function leaveOnlineGame({ notify = true, showLobbyAfter = true } = {}) {
+        if (!online.gameId) return;
+        if (notify && !state.gameOver && online.gameRoom) {
+          try {
+            online.gameRoom.publishTopic('forfeit', {
+              reason: `${online.username} left the game.`,
+            });
+          } catch { /* the other client will also notice presence disappearing */ }
+        }
+        cleanupGameRoom();
+        online.gameId = null;
+        online.color = null;
+        online.opponentPeerId = null;
+        online.opponentName = '';
+        online.version = 0;
+        online.incoming = [];
+        online.sent = [];
+        winnerOverlay.classList.remove('show');
+        if (online.connected) publishLobbyPresence({ status: 'lobby', gameId: '', color: '' });
+        if (showLobbyAfter && online.connected) {
+          renderLobby();
+          showLobby();
+        }
+      }
+
+      function leaveMultiplayer() {
+        leaveOnlineGame({ notify: true, showLobbyAfter: false });
+        cleanupLobbyRoom();
+        online.connected = false;
+        online.username = '';
+        online.usernameKey = '';
+        online.incoming = [];
+        online.sent = [];
+        hideLobby();
+        winnerOverlay.classList.remove('show');
         setModeButtons('multiplayer');
         showStartScreen();
       }
@@ -1027,18 +1384,18 @@
       leaveLobbyBtn.addEventListener('click', leaveMultiplayer);
 
       onlineList.addEventListener('click', event => {
-        const button = event.target.closest('[data-invite]');
-        if (button) lobbyAction('/api/invite', { username: button.dataset.invite }, `invited ${button.dataset.invite}.`);
+        const button = event.target.closest('[data-invite-peer]');
+        if (button) sendInvite(button.dataset.invitePeer, button.dataset.inviteName);
       });
       incomingList.addEventListener('click', event => {
         const accept = event.target.closest('[data-accept]');
         const decline = event.target.closest('[data-decline]');
-        if (accept) lobbyAction('/api/invite/respond', { inviteId: accept.dataset.accept, accept: true });
-        if (decline) lobbyAction('/api/invite/respond', { inviteId: decline.dataset.decline, accept: false }, 'invitation declined.');
+        if (accept) acceptInvite(accept.dataset.accept);
+        if (decline) declineInvite(decline.dataset.decline);
       });
       sentList.addEventListener('click', event => {
         const cancel = event.target.closest('[data-cancel]');
-        if (cancel) lobbyAction('/api/invite/cancel', { inviteId: cancel.dataset.cancel }, 'invitation cancelled.');
+        if (cancel) cancelInvite(cancel.dataset.cancel);
       });
 
       playAgainBtn.addEventListener('click', () => {
@@ -1050,6 +1407,13 @@
         else { winnerOverlay.classList.remove('show'); showStartScreen(); }
       });
       winnerOverlay.addEventListener('click', event => { if (event.target === winnerOverlay && state.mode !== 'multiplayer') winnerOverlay.classList.remove('show'); });
+      window.addEventListener('beforeunload', () => {
+        if (online.gameId && !state.gameOver) {
+          try { online.gameRoom?.publishTopic('forfeit', { reason: `${online.username} disconnected.` }); } catch {}
+        }
+        online.gameRoom?.leaveRoom();
+        online.lobbyRoom?.leaveRoom();
+      });
 
       buildLegend();
       resetLocalGame('bot');
