@@ -4,12 +4,29 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Rock Paper Scissors Strategy</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('rps-theme');
+      document.documentElement.dataset.theme = savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {}
+  </script>
   <style>
     :root {
+      color-scheme: light;
       --bg: #fff;
+      --surface: #fff;
+      --cell: #fff;
       --ink: #172033;
       --muted: #677184;
       --line: #cfd5df;
+      --board-line: #172033;
+      --hover: #f5f7fa;
+      --selected-surface: #f4f7fb;
+      --overlay: rgba(255,255,255,.98);
+      --overlay-soft: rgba(255,255,255,.72);
+      --mark: rgba(23,32,51,.38);
+      --mark-soft: rgba(23,32,51,.22);
+      --primary-text: #fff;
       --blue: #55a9ed;
       --blue-deep: #1976d2;
       --blue-soft: #dceefe;
@@ -19,6 +36,31 @@
       --gold: #f2c44f;
       --left-w: clamp(190px, 18vw, 235px);
       --right-w: clamp(210px, 20vw, 270px);
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #11151c;
+      --surface: #181e27;
+      --cell: #202733;
+      --ink: #edf2f8;
+      --muted: #aab4c3;
+      --line: #394352;
+      --board-line: #536074;
+      --hover: #242c38;
+      --selected-surface: #283241;
+      --overlay: rgba(17,21,28,.98);
+      --overlay-soft: rgba(17,21,28,.78);
+      --mark: rgba(237,242,248,.46);
+      --mark-soft: rgba(237,242,248,.28);
+      --primary-text: #11151c;
+      --blue: #59aff4;
+      --blue-deep: #62b6ff;
+      --blue-soft: #193b58;
+      --red: #f0788e;
+      --red-deep: #ff7892;
+      --red-soft: #4d222d;
+      --gold: #f2c44f;
     }
 
     * { box-sizing: border-box; }
@@ -100,28 +142,43 @@
     .btn, .mode-button, .small-btn {
       appearance: none;
       border: 2px solid var(--ink);
-      background: #fff;
+      background: var(--surface);
       border-radius: 5px;
       padding: 8px 12px;
       font-weight: 750;
       cursor: pointer;
       transition: transform .1s ease, background .1s ease;
     }
-    .btn:hover, .mode-button:hover, .small-btn:hover { background: #f5f7fa; }
+    .btn:hover, .mode-button:hover, .small-btn:hover { background: var(--hover); }
     .btn:active, .mode-button:active, .small-btn:active { transform: translateY(1px); }
-    .btn.primary, .small-btn.primary { background: var(--ink); color: #fff; }
+    .btn.primary, .small-btn.primary { background: var(--ink); color: var(--primary-text); }
     .btn.danger, .small-btn.danger { color: var(--red-deep); border-color: var(--red-deep); }
     .small-btn { padding: 5px 9px; font-size: .82rem; }
     button:disabled { cursor: default; opacity: .48; transform: none !important; }
+
+    .theme-button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 8px;
+      font-size: .78rem;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .theme-button:hover { color: var(--ink); background: var(--hover); }
+    .title-theme { margin-top: 12px; }
+    .start-theme-row { display: flex; justify-content: flex-end; margin-top: -2px; }
 
     .board-area { height: calc(100vh - 16px); min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
     .board-wrap {
       width: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
       height: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
       aspect-ratio: 1;
-      padding: 5px;
-      border: 2px solid var(--ink);
-      background: #fff;
+      padding: 0;
+      border: 0;
+      background: transparent;
     }
 
     .board-coordinate-grid {
@@ -175,7 +232,7 @@
       grid-template-rows: repeat(9, minmax(0, 1fr));
       gap: 4px;
       padding: 4px;
-      background: var(--ink);
+      background: var(--board-line);
       touch-action: manipulation;
     }
 
@@ -192,7 +249,7 @@
       border: 0;
       border-radius: 3px;
       overflow: hidden;
-      background: #fff;
+      background: var(--cell);
       cursor: pointer;
       transition: box-shadow .1s ease, background .1s ease;
     }
@@ -200,12 +257,12 @@
     .cell.territory-blue { background: var(--blue-soft); }
     .cell.territory-red { background: var(--red-soft); }
     .cell.selected { box-shadow: inset 0 0 0 4px var(--gold); }
-    .cell.last-from { box-shadow: inset 0 0 0 3px rgba(23,32,51,.22); }
+    .cell.last-from { box-shadow: inset 0 0 0 3px var(--mark-soft); }
     .cell.last-to { box-shadow: inset 0 0 0 4px var(--gold); }
 
     .cell.valid::after, .cell.valid-capture::after { content: ""; position: absolute; pointer-events: none; }
-    .cell.valid::after { width: 12px; height: 12px; border-radius: 50%; background: rgba(23,32,51,.38); }
-    .cell.valid-capture::after { inset: 6px; border: 3px dashed rgba(23,32,51,.45); border-radius: 2px; }
+    .cell.valid::after { width: 12px; height: 12px; border-radius: 50%; background: var(--mark); }
+    .cell.valid-capture::after { inset: 6px; border: 3px dashed var(--mark); border-radius: 2px; }
 
     .piece { width: 70%; height: 70%; pointer-events: none; }
     .piece.blue { color: var(--blue-deep); }
@@ -231,7 +288,7 @@
       display: grid;
       place-items: center;
       padding: 24px;
-      background: rgba(255,255,255,.98);
+      background: var(--overlay);
       opacity: 0;
       pointer-events: none;
       transition: opacity .18s ease;
@@ -243,7 +300,7 @@
       width: min(720px, 100%);
       border: 3px solid var(--ink);
       border-radius: 28px;
-      background: #fff;
+      background: var(--surface);
       padding: 24px;
       box-shadow: 0 6px 0 rgba(17,24,39,.12);
     }
@@ -255,12 +312,12 @@
     .mode-button { min-height: 102px; border-radius: 14px; text-align: left; padding: 14px; }
     .mode-button strong { display: block; font-size: 1.05rem; margin-bottom: 6px; }
     .mode-button span { color: var(--muted); font-size: .9rem; line-height: 1.35; }
-    .mode-button.selected { background: #f4f7fb; box-shadow: inset 0 0 0 2px var(--ink); }
+    .mode-button.selected { background: var(--selected-surface); box-shadow: inset 0 0 0 2px var(--ink); }
 
     .multiplayer-fields { display: none; border-top: 1px solid var(--line); padding-top: 16px; }
     .multiplayer-fields.show { display: block; }
     .field-label { display: block; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
-    .text-input { width: 100%; border: 2px solid var(--ink); border-radius: 7px; padding: 10px 12px; background: #fff; outline-offset: 2px; }
+    .text-input { width: 100%; border: 2px solid var(--ink); border-radius: 7px; padding: 10px 12px; background: var(--surface); color: var(--ink); outline-offset: 2px; }
     .field-note, .start-status { margin-top: 7px; color: var(--muted); font-size: .86rem; line-height: 1.35; }
     .start-status.error { color: var(--red-deep); }
 
@@ -276,7 +333,7 @@
       overflow: auto;
       border: 3px solid var(--ink);
       border-radius: 6px;
-      background: #fff;
+      background: var(--surface);
     }
 
     .lobby-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 2px solid var(--ink); }
@@ -305,7 +362,7 @@
       display: grid;
       place-items: center;
       padding: 20px;
-      background: rgba(255,255,255,.72);
+      background: var(--overlay-soft);
       opacity: 0;
       pointer-events: none;
       transition: opacity .12s ease;
@@ -315,7 +372,7 @@
       width: min(420px, 100%);
       border: 3px solid var(--ink);
       border-radius: 6px;
-      background: #fff;
+      background: var(--surface);
       padding: 20px;
     }
     .invite-popup-label { margin: 0 0 8px; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
@@ -345,6 +402,7 @@
     <div class="start-panel">
       <h1 id="startTitle">rock paper scissors</h1>
       <p>blue moves once on the opening turn. every turn after that has two moves.</p>
+      <div class="start-theme-row"><button class="theme-button" data-theme-toggle type="button">dark mode</button></div>
       <div class="mode-grid" role="group" aria-label="Choose game mode">
         <button class="mode-button selected" data-mode="bot" type="button">
           <strong>play vs bot</strong>
@@ -414,7 +472,7 @@
 
   <main class="app">
     <aside class="side left-side" aria-label="Game information and controls">
-      <section class="section"><h1 class="game-title">rock paper scissors</h1></section>
+      <section class="section"><h1 class="game-title">rock paper scissors</h1><button class="theme-button title-theme" data-theme-toggle type="button">dark mode</button></section>
       <section class="section" aria-label="Scores">
         <p class="section-label">score</p>
         <div class="score-line"><span id="blueName" class="dim">blue</span><span id="blueScore" class="score-number blue-text">6</span></div>
@@ -552,6 +610,29 @@
       let state;
       let botTimer = null;
       let selectedMode = 'bot';
+      const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle]'));
+
+      function applyTheme(theme) {
+        const dark = theme === 'dark';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        themeButtons.forEach(button => {
+          button.textContent = dark ? 'light mode' : 'dark mode';
+          button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+        });
+        try { localStorage.setItem('rps-theme', dark ? 'dark' : 'light'); } catch {}
+      }
+
+      function toggleTheme() {
+        applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+      }
+
+      function loadTheme() {
+        let saved = null;
+        try { saved = localStorage.getItem('rps-theme'); } catch {}
+        const preferred = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        applyTheme(saved === 'dark' || saved === 'light' ? saved : preferred);
+      }
+
       const online = {
         connected: false,
         username: '',
@@ -1645,6 +1726,8 @@
         online.lobbyRoom?.leaveRoom();
       });
 
+      themeButtons.forEach(button => button.addEventListener('click', toggleTheme));
+      loadTheme();
       buildLegend();
       resetLocalGame('bot');
       setModeButtons('bot');
