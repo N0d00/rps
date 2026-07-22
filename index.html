@@ -124,7 +124,50 @@
       background: #fff;
     }
 
+    .board-coordinate-grid {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      grid-template-rows: 22px minmax(0, 1fr);
+      gap: 4px;
+    }
+
+    .coordinate-corner { grid-column: 1; grid-row: 1; }
+
+    .top-coordinates {
+      grid-column: 2;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      gap: 4px;
+      padding: 0 4px;
+      align-items: center;
+    }
+
+    .side-coordinates {
+      grid-column: 1;
+      grid-row: 2;
+      display: grid;
+      grid-template-rows: repeat(9, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px 0;
+      align-items: center;
+    }
+
+    .coordinate-label {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 800;
+      line-height: 1;
+      user-select: none;
+    }
+
     .board {
+      grid-column: 2;
+      grid-row: 2;
       width: 100%;
       height: 100%;
       display: grid;
@@ -255,6 +298,32 @@
     .lobby-message { min-height: 1.3em; color: var(--muted); font-size: .86rem; margin-top: 12px; }
     .lobby-message.error { color: var(--red-deep); }
 
+    .invite-popup {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(255,255,255,.72);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease;
+    }
+    .invite-popup.show { opacity: 1; pointer-events: auto; }
+    .invite-popup-panel {
+      width: min(420px, 100%);
+      border: 3px solid var(--ink);
+      border-radius: 6px;
+      background: #fff;
+      padding: 20px;
+    }
+    .invite-popup-label { margin: 0 0 8px; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .invite-popup h2 { margin: 0; font-size: 1.45rem; letter-spacing: -.035em; }
+    .invite-popup p { margin: 8px 0 0; color: var(--muted); line-height: 1.4; }
+    .invite-popup-actions { display: flex; gap: 8px; margin-top: 18px; }
+    .invite-popup-actions .btn { flex: 1; }
+
     @media (max-width: 900px) {
       html, body { overflow: auto; }
       .app { height: auto; min-height: 100vh; grid-template-columns: 1fr; padding: 10px 14px 18px; }
@@ -331,6 +400,18 @@
     </div>
   </div>
 
+  <div id="invitePopup" class="invite-popup" role="dialog" aria-modal="true" aria-labelledby="invitePopupTitle">
+    <div class="invite-popup-panel">
+      <p class="invite-popup-label">game invitation</p>
+      <h2 id="invitePopupTitle">someone invited you</h2>
+      <p id="invitePopupText">accept to start a match.</p>
+      <div class="invite-popup-actions">
+        <button id="invitePopupAccept" class="btn primary" type="button">accept</button>
+        <button id="invitePopupDecline" class="btn" type="button">decline</button>
+      </div>
+    </div>
+  </div>
+
   <main class="app">
     <aside class="side left-side" aria-label="Game information and controls">
       <section class="section"><h1 class="game-title">rock paper scissors</h1></section>
@@ -361,7 +442,22 @@
     </aside>
 
     <section class="board-area" aria-label="Game board section">
-      <div class="board-wrap"><div id="board" class="board" role="grid" aria-label="Rock paper scissors strategy board"></div></div>
+      <div class="board-wrap">
+        <div class="board-coordinate-grid">
+          <div class="coordinate-corner" aria-hidden="true"></div>
+          <div class="top-coordinates" aria-hidden="true">
+            <span class="coordinate-label">1</span><span class="coordinate-label">2</span><span class="coordinate-label">3</span>
+            <span class="coordinate-label">4</span><span class="coordinate-label">5</span><span class="coordinate-label">6</span>
+            <span class="coordinate-label">7</span><span class="coordinate-label">8</span><span class="coordinate-label">9</span>
+          </div>
+          <div class="side-coordinates" aria-hidden="true">
+            <span class="coordinate-label">A</span><span class="coordinate-label">B</span><span class="coordinate-label">C</span>
+            <span class="coordinate-label">D</span><span class="coordinate-label">E</span><span class="coordinate-label">F</span>
+            <span class="coordinate-label">G</span><span class="coordinate-label">H</span><span class="coordinate-label">I</span>
+          </div>
+          <div id="board" class="board" role="grid" aria-label="Rock paper scissors strategy board, columns 1 through 9 and rows A through I"></div>
+        </div>
+      </div>
     </section>
 
     <aside class="side right-side" aria-label="Rules and piece info">
@@ -447,6 +543,11 @@
       const incomingCount = byId('incomingCount');
       const lobbyMessage = byId('lobbyMessage');
       const leaveLobbyBtn = byId('leaveLobbyBtn');
+      const invitePopup = byId('invitePopup');
+      const invitePopupTitle = byId('invitePopupTitle');
+      const invitePopupText = byId('invitePopupText');
+      const invitePopupAccept = byId('invitePopupAccept');
+      const invitePopupDecline = byId('invitePopupDecline');
 
       let state;
       let botTimer = null;
@@ -589,7 +690,7 @@
         return result;
       }
 
-      function coordinate(r, c) { return `${String.fromCharCode(65 + c)}${r + 1}`; }
+      function coordinate(r, c) { return `${String.fromCharCode(65 + r)}${c + 1}`; }
 
       function canAct() {
         if (state.gameOver || state.botThinking || online.busy) return false;
@@ -902,6 +1003,22 @@
         sentList.innerHTML = online.sent.length ? online.sent.map(invite =>
           `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.toUsername)}</div><div class="player-status">waiting</div></div><button class="small-btn" data-cancel="${escapeHtml(invite.id)}">cancel</button></div>`
         ).join('') : '<div class="empty-row">none sent.</div>';
+        syncInvitePopup();
+      }
+
+      function syncInvitePopup() {
+        const invite = online.incoming[0];
+        const shouldShow = Boolean(invite && online.connected && !online.gameId && lobbyScreen.classList.contains('show'));
+        invitePopup.classList.toggle('show', shouldShow);
+        if (!shouldShow) return;
+        invitePopup.dataset.inviteId = invite.id;
+        invitePopupTitle.textContent = `${invite.fromUsername} invited you`;
+        invitePopupText.textContent = `accept to play ${invite.fromUsername}.`;
+      }
+
+      function hideInvitePopup() {
+        invitePopup.classList.remove('show');
+        invitePopup.dataset.inviteId = '';
       }
 
       function publishLobbyPresence(data) {
@@ -911,23 +1028,96 @@
       function handleLobbyPresence(response) {
         online.lobbyPresence = response;
         if (response.user?.peerId) online.peerId = response.user.peerId;
+
+        // Presence doubles as a recovery path for the match handshake. Topics
+        // are fire-and-forget, so a player who misses the one match-start event
+        // can still join from the accepter's current lobby presence.
+        if (online.connected && !online.gameId && online.peerId) {
+          const host = Object.values(response.peers || {}).find(peer =>
+            peer.status === 'playing' &&
+            peer.matchToPeerId === online.peerId &&
+            peer.gameId &&
+            peer.matchSnapshot
+          );
+          if (host) {
+            try {
+              startOnlineGame({
+                gameId: host.gameId,
+                color: host.matchColorForTarget || (host.color === 'red' ? 'blue' : 'red'),
+                opponentPeerId: host.peerId,
+                opponentName: host.username,
+                snapshot: JSON.parse(host.matchSnapshot),
+              });
+              return;
+            } catch {
+              lobbyMessage.textContent = 'A match invitation arrived, but its game data was invalid.';
+            }
+          }
+        }
+
         if (online.connected) renderLobby();
       }
 
-      function handleLobbyEvent(event, peer) {
-        if (!event || !peer?.peerId || event.toPeerId !== online.peerId) return;
-        const sender = peerById(peer.peerId) || peer;
+      function handleLobbyEvent(event) {
+        if (!event || event.toPeerId !== online.peerId || !event.fromPeerId) return;
+        if (event.fromPeerId === online.peerId) return;
+        const sender = peerById(event.fromPeerId);
 
         if (event.type === 'invite') {
-          if (sender.status !== 'lobby' || !sender.username || online.gameId) return;
+          const senderName = sender?.username || event.fromUsername;
+          if (!senderName || online.gameId) return;
+          if (sender && sender.status !== 'lobby') return;
+
+          // If both players invited each other, treat that as mutual acceptance.
+          // Only the lexicographically larger peer creates the game, preventing
+          // both browsers from creating different matches at once.
+          const reciprocal = online.sent.find(invite => invite.toPeerId === event.fromPeerId);
+          if (reciprocal) {
+            if (online.peerId.localeCompare(event.fromPeerId) > 0) {
+              const gameId = uid();
+              const bluePeerId = event.fromPeerId;
+              const blueName = senderName;
+              const redName = online.username;
+              const snapshot = createInitialSnapshot(gameId, blueName, redName);
+              publishLobbyPresence({
+                status: 'playing',
+                gameId,
+                color: 'red',
+                matchToPeerId: event.fromPeerId,
+                matchColorForTarget: 'blue',
+                matchSnapshot: JSON.stringify(snapshot),
+              });
+              online.lobbyRoom.publishTopic('lobby-event', {
+                type: 'match-start',
+                fromPeerId: online.peerId,
+                fromUsername: online.username,
+                toPeerId: event.fromPeerId,
+                gameId,
+                color: 'blue',
+                opponentName: online.username,
+                snapshot,
+              });
+              startOnlineGame({
+                gameId,
+                color: 'red',
+                opponentPeerId: bluePeerId,
+                opponentName: blueName,
+                snapshot,
+              });
+            } else {
+              lobbyMessage.textContent = `mutual invitation with ${senderName}; starting…`;
+            }
+            return;
+          }
+
           if (online.incoming.some(invite => invite.id === event.inviteId)) return;
           online.incoming.push({
             id: event.inviteId,
-            fromPeerId: peer.peerId,
-            fromUsername: sender.username,
+            fromPeerId: event.fromPeerId,
+            fromUsername: senderName,
             createdAt: Number(event.createdAt) || Date.now(),
           });
-          lobbyMessage.textContent = `${sender.username} invited you.`;
+          lobbyMessage.textContent = `${senderName} invited you.`;
           renderLobby();
           return;
         }
@@ -939,19 +1129,23 @@
         }
 
         if (event.type === 'invite-response') {
-          const sent = online.sent.find(invite => invite.id === event.inviteId && invite.toPeerId === peer.peerId);
+          const sent = online.sent.find(invite => invite.id === event.inviteId && invite.toPeerId === event.fromPeerId);
           if (!sent) return;
           online.sent = online.sent.filter(invite => invite.id !== event.inviteId);
           if (!event.accepted) {
             lobbyMessage.textContent = `${sent.toUsername} declined.`;
             renderLobby();
-            return;
           }
+          return;
+        }
+
+        if (event.type === 'match-start') {
+          if (online.gameId) return;
           startOnlineGame({
             gameId: event.gameId,
-            color: 'blue',
-            opponentPeerId: peer.peerId,
-            opponentName: sent.toUsername,
+            color: event.color,
+            opponentPeerId: event.fromPeerId,
+            opponentName: event.opponentName || event.fromUsername,
             snapshot: event.snapshot,
           });
         }
@@ -967,6 +1161,9 @@
             status: 'claiming',
             gameId: '',
             color: '',
+            matchToPeerId: '',
+            matchColorForTarget: '',
+            matchSnapshot: '',
           },
         });
 
@@ -994,6 +1191,7 @@
       }
 
       function cleanupLobbyRoom() {
+        hideInvitePopup();
         online.lobbyUnsubPresence?.();
         online.lobbyUnsubTopic?.();
         online.lobbyRoom?.leaveRoom();
@@ -1055,6 +1253,8 @@
         online.lobbyRoom.publishTopic('lobby-event', {
           type: 'invite',
           inviteId: invite.id,
+          fromPeerId: online.peerId,
+          fromUsername: online.username,
           toPeerId: peerId,
           createdAt: invite.createdAt,
         });
@@ -1068,6 +1268,8 @@
         online.lobbyRoom.publishTopic('lobby-event', {
           type: 'invite-cancel',
           inviteId,
+          fromPeerId: online.peerId,
+          fromUsername: online.username,
           toPeerId: invite.toPeerId,
         });
         online.sent = online.sent.filter(item => item.id !== inviteId);
@@ -1080,10 +1282,13 @@
         online.lobbyRoom.publishTopic('lobby-event', {
           type: 'invite-response',
           inviteId,
+          fromPeerId: online.peerId,
+          fromUsername: online.username,
           toPeerId: invite.fromPeerId,
           accepted: false,
         });
         online.incoming = online.incoming.filter(item => item.id !== inviteId);
+        hideInvitePopup();
         renderLobby();
       }
 
@@ -1116,14 +1321,26 @@
 
         const gameId = uid();
         const snapshot = createInitialSnapshot(gameId, invite.fromUsername, online.username);
-        online.lobbyRoom.publishTopic('lobby-event', {
-          type: 'invite-response',
-          inviteId,
-          toPeerId: invite.fromPeerId,
-          accepted: true,
+        publishLobbyPresence({
+          status: 'playing',
           gameId,
+          color: 'red',
+          matchToPeerId: invite.fromPeerId,
+          matchColorForTarget: 'blue',
+          matchSnapshot: JSON.stringify(snapshot),
+        });
+        online.lobbyRoom.publishTopic('lobby-event', {
+          type: 'match-start',
+          inviteId,
+          fromPeerId: online.peerId,
+          fromUsername: online.username,
+          toPeerId: invite.fromPeerId,
+          gameId,
+          color: 'blue',
+          opponentName: online.username,
           snapshot,
         });
+        hideInvitePopup();
         startOnlineGame({
           gameId,
           color: 'red',
@@ -1199,7 +1416,7 @@
 
       function handleGamePresence(response) {
         online.gamePresence = response;
-        const opponent = response.peers?.[online.opponentPeerId];
+        const opponent = Object.values(response.peers || {}).find(peer => peer.lobbyPeerId === online.opponentPeerId);
         if (opponent) {
           online.opponentSeen = true;
           clearTimeout(online.disconnectTimer);
@@ -1211,7 +1428,7 @@
 
         if (online.opponentSeen && !state.gameOver && !online.disconnectTimer) {
           online.disconnectTimer = setTimeout(() => {
-            const stillMissing = !online.gamePresence?.peers?.[online.opponentPeerId];
+            const stillMissing = !Object.values(online.gamePresence?.peers || {}).some(peer => peer.lobbyPeerId === online.opponentPeerId);
             if (stillMissing && state.mode === 'multiplayer' && !state.gameOver) {
               state.gameOver = true;
               state.winner = online.color;
@@ -1227,6 +1444,8 @@
       }
 
       function startOnlineGame({ gameId, color, opponentPeerId, opponentName, snapshot }) {
+        if (online.gameId === gameId && online.gameRoom) return;
+        hideInvitePopup();
         cleanupGameRoom();
         online.incoming = [];
         online.sent = [];
@@ -1242,6 +1461,7 @@
         const room = instantDb.joinRoom('rps-game', gameId, {
           initialPresence: {
             username: online.username,
+            lobbyPeerId: online.peerId,
             color,
             gameId,
             version: snapshot.version,
@@ -1249,15 +1469,15 @@
           },
         });
         online.gameRoom = room;
-        online.gameUnsubState = room.subscribeTopic('state', (remoteSnapshot, peer) => {
-          if (peer?.peerId !== online.opponentPeerId) return;
-          applyOnlineSnapshot(remoteSnapshot);
+        online.gameUnsubState = room.subscribeTopic('state', (event) => {
+          if (!event || event.fromPeerId !== online.opponentPeerId) return;
+          applyOnlineSnapshot(event.snapshot);
         });
-        online.gameUnsubForfeit = room.subscribeTopic('forfeit', (event, peer) => {
-          if (peer?.peerId !== online.opponentPeerId || state.gameOver) return;
+        online.gameUnsubForfeit = room.subscribeTopic('forfeit', (event) => {
+          if (!event || event.fromPeerId !== online.opponentPeerId || state.gameOver) return;
           state.gameOver = true;
           state.winner = online.color;
-          state.winReason = event?.reason || `${online.opponentName} left the game.`;
+          state.winReason = event.reason || `${online.opponentName} left the game.`;
           state.message = state.winReason;
           online.version++;
           render();
@@ -1285,7 +1505,7 @@
         if (!online.gameRoom) return;
         const snapshot = snapshotFromState();
         try {
-          online.gameRoom.publishTopic('state', snapshot);
+          online.gameRoom.publishTopic('state', { fromPeerId: online.peerId, snapshot });
           online.gameRoom.publishPresence({ version: snapshot.version, snapshot: JSON.stringify(snapshot) });
         } catch {
           state.message = 'The move is shown locally, but the connection is having trouble.';
@@ -1335,6 +1555,7 @@
         if (notify && !state.gameOver && online.gameRoom) {
           try {
             online.gameRoom.publishTopic('forfeit', {
+              fromPeerId: online.peerId,
               reason: `${online.username} left the game.`,
             });
           } catch { /* the other client will also notice presence disappearing */ }
@@ -1348,7 +1569,7 @@
         online.incoming = [];
         online.sent = [];
         winnerOverlay.classList.remove('show');
-        if (online.connected) publishLobbyPresence({ status: 'lobby', gameId: '', color: '' });
+        if (online.connected) publishLobbyPresence({ status: 'lobby', gameId: '', color: '', matchToPeerId: '', matchColorForTarget: '', matchSnapshot: '' });
         if (showLobbyAfter && online.connected) {
           renderLobby();
           showLobby();
@@ -1398,6 +1619,15 @@
         if (cancel) cancelInvite(cancel.dataset.cancel);
       });
 
+      invitePopupAccept.addEventListener('click', () => {
+        const inviteId = invitePopup.dataset.inviteId;
+        if (inviteId) acceptInvite(inviteId);
+      });
+      invitePopupDecline.addEventListener('click', () => {
+        const inviteId = invitePopup.dataset.inviteId;
+        if (inviteId) declineInvite(inviteId);
+      });
+
       playAgainBtn.addEventListener('click', () => {
         if (state.mode === 'multiplayer') leaveOnlineGame();
         else resetLocalGame(state.mode);
@@ -1409,7 +1639,7 @@
       winnerOverlay.addEventListener('click', event => { if (event.target === winnerOverlay && state.mode !== 'multiplayer') winnerOverlay.classList.remove('show'); });
       window.addEventListener('beforeunload', () => {
         if (online.gameId && !state.gameOver) {
-          try { online.gameRoom?.publishTopic('forfeit', { reason: `${online.username} disconnected.` }); } catch {}
+          try { online.gameRoom?.publishTopic('forfeit', { fromPeerId: online.peerId, reason: `${online.username} disconnected.` }); } catch {}
         }
         online.gameRoom?.leaveRoom();
         online.lobbyRoom?.leaveRoom();
