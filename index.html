@@ -314,6 +314,23 @@
     .mode-button span { color: var(--muted); font-size: .9rem; line-height: 1.35; }
     .mode-button.selected { background: var(--selected-surface); box-shadow: inset 0 0 0 2px var(--ink); }
 
+    .ruleset-picker { border-top: 1px solid var(--line); padding-top: 16px; margin-bottom: 16px; }
+    .ruleset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ruleset-button {
+      appearance: none;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 11px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .ruleset-button:hover { background: var(--hover); }
+    .ruleset-button.selected { background: var(--selected-surface); box-shadow: inset 0 0 0 2px var(--ink); }
+    .ruleset-button strong { display: block; margin-bottom: 3px; }
+    .ruleset-button span { color: var(--muted); font-size: .84rem; line-height: 1.3; }
+    .rules-badge { font-weight: 850; text-transform: uppercase; }
+
     .multiplayer-fields { display: none; border-top: 1px solid var(--line); padding-top: 16px; }
     .multiplayer-fields.show { display: block; }
     .field-label { display: block; font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 7px; }
@@ -389,6 +406,7 @@
       .board-wrap { width: min(calc(100vw - 28px), 720px); height: min(calc(100vw - 28px), 720px); }
       .game-title { max-width: none; }
       .mode-grid { grid-template-columns: 1fr; }
+      .ruleset-grid { grid-template-columns: 1fr; }
       .mode-button { min-height: 78px; }
       .lobby-body { grid-template-columns: 1fr; }
       .lobby-column + .lobby-column { border-left: 0; border-top: 2px solid var(--ink); }
@@ -401,7 +419,7 @@
   <div id="startScreen" class="start-screen show" role="dialog" aria-modal="true" aria-labelledby="startTitle">
     <div class="start-panel">
       <h1 id="startTitle">rock paper scissors</h1>
-      <p>blue moves once on the opening turn. every turn after that has two moves.</p>
+      <p id="startDescription">choose a mode, then choose which rules to use.</p>
       <div class="start-theme-row"><button class="theme-button" data-theme-toggle type="button">dark mode</button></div>
       <div class="mode-grid" role="group" aria-label="Choose game mode">
         <button class="mode-button selected" data-mode="bot" type="button">
@@ -414,8 +432,21 @@
         </button>
         <button class="mode-button" data-mode="multiplayer" type="button">
           <strong>online</strong>
-          <span>join the realtime lobby and invite another player.</span>
+          <span>join the realtime lobby; blue and the first move are assigned randomly.</span>
         </button>
+      </div>
+      <div class="ruleset-picker">
+        <span class="field-label">choose rules</span>
+        <div class="ruleset-grid" role="group" aria-label="Choose rules version">
+          <button class="ruleset-button selected" data-ruleset="v1" type="button">
+            <strong>v1 · 1, 2, 2, 2…</strong>
+            <span>blue opens with one move; later turns get two. first to 41 territory wins.</span>
+          </button>
+          <button class="ruleset-button" data-ruleset="v2" type="button">
+            <strong>v2 · 1, 1, 1, 1…</strong>
+            <span>one move every turn. win by eliminating every enemy piece or owning more when the board is filled.</span>
+          </button>
+        </div>
       </div>
       <div id="multiplayerFields" class="multiplayer-fields">
         <label class="field-label" for="usernameInput">temporary username</label>
@@ -434,7 +465,7 @@
       <header class="lobby-header">
         <div>
           <h1 id="lobbyTitle">multiplayer lobby</h1>
-          <p>online as <strong id="lobbyUsername"></strong></p>
+          <p>online as <strong id="lobbyUsername"></strong> · <span id="lobbyRules" class="rules-badge">v1</span></p>
         </div>
         <button id="leaveLobbyBtn" class="btn" type="button">leave</button>
       </header>
@@ -486,6 +517,7 @@
       <section class="section">
         <p class="section-label">match</p>
         <div class="match-line"><span class="dim">mode</span><span id="modeLabel" class="strong">vs bot</span></div>
+        <div class="match-line"><span class="dim">rules</span><span id="rulesetLabel" class="strong rules-badge">v1</span></div>
         <div class="match-line"><span class="dim">turn</span><span id="turnNumber" class="strong">1</span></div>
         <div class="match-line"><span class="dim">last</span><span id="lastMoveLabel" class="strong">none</span></div>
       </section>
@@ -526,7 +558,7 @@
       </section>
       <section class="section">
         <p class="section-label">rules</p>
-        <ol class="rules-list">
+        <ol id="rulesList" class="rules-list">
           <li>move 1 square in any direction.</li>
           <li>blue gets 1 opening move; later turns get 2.</li>
           <li>white squares become your color.</li>
@@ -559,6 +591,10 @@
       let instantDb = null;
       const SIZE = 9;
       const WIN_SCORE = 41;
+      const RULESETS = {
+        v1: { label: 'v1', turnPattern: '1, 2, 2, 2…' },
+        v2: { label: 'v2', turnPattern: '1, 1, 1, 1…' },
+      };
       const TYPES = ['rock', 'paper', 'scissors'];
       const LABELS = { rock: 'Rock', paper: 'Paper', scissors: 'Scissors' };
       const BEATS = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
@@ -577,6 +613,8 @@
       const turnNumberEl = byId('turnNumber');
       const lastMoveLabelEl = byId('lastMoveLabel');
       const modeLabelEl = byId('modeLabel');
+      const rulesetLabelEl = byId('rulesetLabel');
+      const rulesListEl = byId('rulesList');
       const restartBtn = byId('restartBtn');
       const menuBtn = byId('menuBtn');
       const playAgainBtn = byId('playAgainBtn');
@@ -590,10 +628,13 @@
       const startBtn = byId('startBtn');
       const startStatus = byId('startStatus');
       const modeButtons = Array.from(document.querySelectorAll('.mode-button'));
+      const rulesetButtons = Array.from(document.querySelectorAll('.ruleset-button'));
+      const startDescription = byId('startDescription');
       const multiplayerFields = byId('multiplayerFields');
       const usernameInput = byId('usernameInput');
       const lobbyScreen = byId('lobbyScreen');
       const lobbyUsername = byId('lobbyUsername');
+      const lobbyRules = byId('lobbyRules');
       const onlineList = byId('onlineList');
       const incomingList = byId('incomingList');
       const sentList = byId('sentList');
@@ -610,6 +651,7 @@
       let state;
       let botTimer = null;
       let selectedMode = 'bot';
+      let selectedRuleset = 'v1';
       const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle]'));
 
       function applyTheme(theme) {
@@ -657,7 +699,16 @@
         opponentName: '',
         opponentSeen: false,
         disconnectTimer: null,
+        ruleset: 'v1',
       };
+
+      function normalizeRuleset(ruleset) {
+        return Object.hasOwn(RULESETS, ruleset) ? ruleset : 'v1';
+      }
+
+      function movesForTurn(ruleset, turnNumber) {
+        return normalizeRuleset(ruleset) === 'v2' || turnNumber === 1 ? 1 : 2;
+      }
 
       function emptyCell() { return { territory: null, piece: null }; }
 
@@ -678,11 +729,13 @@
         return board;
       }
 
-      function resetLocalGame(mode = selectedMode) {
+      function resetLocalGame(mode = selectedMode, ruleset = selectedRuleset) {
         clearTimeout(botTimer);
+        ruleset = normalizeRuleset(ruleset);
         state = {
           board: newBoard(), current: 'blue', movesLeft: 1, selected: null,
           turnNumber: 1, gameOver: false, botThinking: false, mode,
+          ruleset,
           lastMove: null, message: 'Blue starts. Select a piece.',
           playerNames: { blue: 'blue', red: mode === 'bot' ? 'bot' : 'red' },
         };
@@ -699,8 +752,19 @@
         startStatus.classList.remove('error');
       }
 
+      function setRulesetButtons(ruleset) {
+        selectedRuleset = normalizeRuleset(ruleset);
+        rulesetButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.ruleset === selectedRuleset));
+        startDescription.textContent = selectedRuleset === 'v1'
+          ? 'v1 uses one opening move, then two moves per turn.'
+          : 'v2 uses one move every turn and scores territory only when no white squares remain.';
+        startStatus.textContent = '';
+        startStatus.classList.remove('error');
+      }
+
       function showStartScreen() {
         setModeButtons(state?.mode === 'multiplayer' ? 'multiplayer' : selectedMode);
+        setRulesetButtons(state?.mode === 'multiplayer' ? online.ruleset : selectedRuleset);
         startScreen.classList.add('show');
       }
 
@@ -811,6 +875,10 @@
         redNameEl.textContent = state.playerNames?.red || 'red';
         turnNumberEl.textContent = state.turnNumber;
         modeLabelEl.textContent = state.mode === 'bot' ? 'vs bot' : state.mode === 'local' ? '2 players' : 'online';
+        rulesetLabelEl.textContent = state.ruleset;
+        rulesListEl.innerHTML = state.ruleset === 'v2'
+          ? '<li>move 1 square in any direction.</li><li>every turn gets <strong>1</strong> move.</li><li>white squares become your color.</li><li>capture only when your piece wins.</li><li>win by taking every opposing piece, or have more territory when no white squares remain.</li>'
+          : '<li>move 1 square in any direction.</li><li>blue gets 1 opening move; later turns get 2.</li><li>white squares become your color.</li><li>capture only when your piece wins.</li><li>first to <strong>41</strong> squares wins.</li>';
         statusEl.textContent = state.message;
         const currentName = state.playerNames?.[state.current] || PLAYER_NAME[state.current].toLowerCase();
         turnTextEl.innerHTML = `<span class="turn-dot" style="background:${PLAYER_COLOR[state.current]}"></span>${currentName}'s turn`;
@@ -862,8 +930,8 @@
 
       function endLocalTurn() {
         state.current = state.current === 'blue' ? 'red' : 'blue';
-        state.movesLeft = 2;
         state.turnNumber++;
+        state.movesLeft = movesForTurn(state.ruleset, state.turnNumber);
         state.selected = null;
         state.message = `${state.playerNames[state.current]}'s turn.`;
         render();
@@ -880,18 +948,31 @@
         winnerOverlay.classList.add('show');
       }
 
+      function determineWinner(board = state.board, ruleset = state.ruleset, names = state.playerNames) {
+        const score = scores(board), pieces = pieceCounts(board);
+        if (pieces.blue === 0) return { winner: 'red', reason: `${names.blue} has no pieces left.` };
+        if (pieces.red === 0) return { winner: 'blue', reason: `${names.red} has no pieces left.` };
+        if (normalizeRuleset(ruleset) === 'v1') {
+          if (score.blue >= WIN_SCORE) return { winner: 'blue', reason: `${names.blue} claimed ${score.blue} squares.` };
+          if (score.red >= WIN_SCORE) return { winner: 'red', reason: `${names.red} claimed ${score.red} squares.` };
+          return null;
+        }
+        if (score.blue + score.red === SIZE * SIZE) {
+          const winner = score.blue > score.red ? 'blue' : 'red';
+          return { winner, reason: `No white squares remain. ${names[winner]} controls more territory, ${score[winner]} to ${score[winner === 'blue' ? 'red' : 'blue']}.` };
+        }
+        return null;
+      }
+
       function checkLocalWinner() {
-        const score = scores(), pieces = pieceCounts();
-        let winner = null, reason = '';
-        if (score.blue >= WIN_SCORE) { winner = 'blue'; reason = `${state.playerNames.blue} claimed ${score.blue} squares.`; }
-        else if (score.red >= WIN_SCORE) { winner = 'red'; reason = `${state.playerNames.red} claimed ${score.red} squares.`; }
-        else if (pieces.blue === 0) { winner = 'red'; reason = `${state.playerNames.blue} has no pieces left.`; }
-        else if (pieces.red === 0) { winner = 'blue'; reason = `${state.playerNames.red} has no pieces left.`; }
-        if (!winner) return false;
+        const result = determineWinner();
+        if (!result) return false;
         state.gameOver = true;
+        state.winner = result.winner;
+        state.winReason = result.reason;
         state.botThinking = false;
-        state.message = reason;
-        showWinner(winner, reason);
+        state.message = result.reason;
+        showWinner(result.winner, result.reason);
         return true;
       }
 
@@ -928,9 +1009,9 @@
 
       function immediateCaptureCount(board, player) { return allLegalMoves(player, board).reduce((n, m) => n + (board[m.to.r][m.to.c].piece ? 1 : 0), 0); }
       function terminalValue(board) {
-        const score = scores(board), pieces = pieceCounts(board);
-        if (score.red >= WIN_SCORE || pieces.blue === 0) return 1_000_000;
-        if (score.blue >= WIN_SCORE || pieces.red === 0) return -1_000_000;
+        const result = determineWinner(board, state.ruleset, state.playerNames);
+        if (result?.winner === 'red') return 1_000_000;
+        if (result?.winner === 'blue') return -1_000_000;
         return null;
       }
 
@@ -973,13 +1054,13 @@
         if (terminal !== null) return terminal;
         if (depth <= 0) return evaluateBoard(board);
         const moves = orderedMoves(board, player, depth >= 4 ? 14 : 17);
-        if (!moves.length) return minimax(board, player === 'red' ? 'blue' : 'red', 2, depth - 1, alpha, beta);
+        if (!moves.length) return minimax(board, player === 'red' ? 'blue' : 'red', movesForTurn(state.ruleset, state.turnNumber + 1), depth - 1, alpha, beta);
         const maximizing = player === 'red';
         let best = maximizing ? -Infinity : Infinity;
         for (const move of moves) {
           const nextBoard = simulateMove(board, move), turnEnds = movesLeft <= 1;
           const nextPlayer = turnEnds ? (player === 'red' ? 'blue' : 'red') : player;
-          const value = minimax(nextBoard, nextPlayer, turnEnds ? 2 : movesLeft - 1, depth - 1, alpha, beta);
+          const value = minimax(nextBoard, nextPlayer, turnEnds ? movesForTurn(state.ruleset, state.turnNumber + 1) : movesLeft - 1, depth - 1, alpha, beta);
           if (maximizing) { best = Math.max(best, value); alpha = Math.max(alpha, best); }
           else { best = Math.min(best, value); beta = Math.min(beta, best); }
           if (beta <= alpha) break;
@@ -993,7 +1074,7 @@
         let bestMove = moves[0], bestValue = -Infinity;
         for (const move of moves) {
           const nextBoard = simulateMove(state.board, move), turnEnds = state.movesLeft <= 1;
-          const value = minimax(nextBoard, turnEnds ? 'blue' : 'red', turnEnds ? 2 : state.movesLeft - 1, 3, -Infinity, Infinity);
+          const value = minimax(nextBoard, turnEnds ? 'blue' : 'red', turnEnds ? movesForTurn(state.ruleset, state.turnNumber + 1) : state.movesLeft - 1, 3, -Infinity, Infinity);
           if (value > bestValue) { bestValue = value; bestMove = move; }
         }
         return bestMove;
@@ -1017,6 +1098,17 @@
 
       function uid() {
         return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      }
+
+      function randomColor() {
+        if (globalThis.crypto?.getRandomValues) {
+          return crypto.getRandomValues(new Uint8Array(1))[0] < 128 ? 'blue' : 'red';
+        }
+        return Math.random() < 0.5 ? 'blue' : 'red';
+      }
+
+      function oppositeColor(color) {
+        return color === 'blue' ? 'red' : 'blue';
       }
 
       function wait(ms) {
@@ -1069,20 +1161,22 @@
         pruneInvites();
         const players = lobbyPeers().sort((a, b) => a.username.localeCompare(b.username));
         lobbyUsername.textContent = online.username;
+        lobbyRules.textContent = online.ruleset;
         onlineCount.textContent = `${players.length + 1} online`;
         incomingCount.textContent = `${online.incoming.length} waiting`;
 
         onlineList.innerHTML = players.length ? players.map(player => {
           const busy = player.status !== 'lobby';
-          return `<div class="list-row"><div><div class="player-name">${escapeHtml(player.username)}</div><div class="player-status">${busy ? 'playing' : 'available'}</div></div><button class="small-btn" data-invite-peer="${escapeHtml(player.peerId)}" data-invite-name="${escapeHtml(player.username)}" ${busy ? 'disabled' : ''}>invite</button></div>`;
+          const ruleset = normalizeRuleset(player.ruleset);
+          return `<div class="list-row"><div><div class="player-name">${escapeHtml(player.username)}</div><div class="player-status">${busy ? 'playing' : 'available'} · <span class="rules-badge">${ruleset}</span></div></div><button class="small-btn" data-invite-peer="${escapeHtml(player.peerId)}" data-invite-name="${escapeHtml(player.username)}" ${busy ? 'disabled' : ''}>invite</button></div>`;
         }).join('') : '<div class="empty-row">no one else is online.</div>';
 
         incomingList.innerHTML = online.incoming.length ? online.incoming.map(invite =>
-          `<div class="list-row"><div class="player-name">${escapeHtml(invite.fromUsername)}</div><div class="row-actions"><button class="small-btn primary" data-accept="${escapeHtml(invite.id)}">accept</button><button class="small-btn" data-decline="${escapeHtml(invite.id)}">decline</button></div></div>`
+          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.fromUsername)}</div><div class="player-status">selected <span class="rules-badge">${normalizeRuleset(invite.fromRuleset)}</span> · accepting uses your <span class="rules-badge">${online.ruleset}</span></div></div><div class="row-actions"><button class="small-btn primary" data-accept="${escapeHtml(invite.id)}">accept</button><button class="small-btn" data-decline="${escapeHtml(invite.id)}">decline</button></div></div>`
         ).join('') : '<div class="empty-row">no invitations.</div>';
 
         sentList.innerHTML = online.sent.length ? online.sent.map(invite =>
-          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.toUsername)}</div><div class="player-status">waiting</div></div><button class="small-btn" data-cancel="${escapeHtml(invite.id)}">cancel</button></div>`
+          `<div class="list-row"><div><div class="player-name">${escapeHtml(invite.toUsername)}</div><div class="player-status">waiting · match will use their <span class="rules-badge">${normalizeRuleset(invite.toRuleset)}</span></div></div><button class="small-btn" data-cancel="${escapeHtml(invite.id)}">cancel</button></div>`
         ).join('') : '<div class="empty-row">none sent.</div>';
         syncInvitePopup();
       }
@@ -1094,7 +1188,7 @@
         if (!shouldShow) return;
         invitePopup.dataset.inviteId = invite.id;
         invitePopupTitle.textContent = `${invite.fromUsername} invited you`;
-        invitePopupText.textContent = `accept to play ${invite.fromUsername}.`;
+        invitePopupText.textContent = `They selected ${normalizeRuleset(invite.fromRuleset)}. Accepting starts the match with your ${online.ruleset} rules.`;
       }
 
       function hideInvitePopup() {
@@ -1156,16 +1250,17 @@
           if (reciprocal) {
             if (online.peerId.localeCompare(event.fromPeerId) > 0) {
               const gameId = uid();
-              const bluePeerId = event.fromPeerId;
-              const blueName = senderName;
-              const redName = online.username;
-              const snapshot = createInitialSnapshot(gameId, blueName, redName);
+              const targetColor = randomColor();
+              const localColor = oppositeColor(targetColor);
+              const blueName = targetColor === 'blue' ? senderName : online.username;
+              const redName = targetColor === 'red' ? senderName : online.username;
+              const snapshot = createInitialSnapshot(gameId, blueName, redName, online.ruleset);
               publishLobbyPresence({
                 status: 'playing',
                 gameId,
-                color: 'red',
+                color: localColor,
                 matchToPeerId: event.fromPeerId,
-                matchColorForTarget: 'blue',
+                matchColorForTarget: targetColor,
                 matchSnapshot: JSON.stringify(snapshot),
               });
               online.lobbyRoom.publishTopic('lobby-event', {
@@ -1174,15 +1269,15 @@
                 fromUsername: online.username,
                 toPeerId: event.fromPeerId,
                 gameId,
-                color: 'blue',
+                color: targetColor,
                 opponentName: online.username,
                 snapshot,
               });
               startOnlineGame({
                 gameId,
-                color: 'red',
-                opponentPeerId: bluePeerId,
-                opponentName: blueName,
+                color: localColor,
+                opponentPeerId: event.fromPeerId,
+                opponentName: senderName,
                 snapshot,
               });
             } else {
@@ -1196,6 +1291,7 @@
             id: event.inviteId,
             fromPeerId: event.fromPeerId,
             fromUsername: senderName,
+            fromRuleset: normalizeRuleset(sender?.ruleset || event.fromRuleset),
             createdAt: Number(event.createdAt) || Date.now(),
           });
           lobbyMessage.textContent = `${senderName} invited you.`;
@@ -1245,6 +1341,7 @@
             matchToPeerId: '',
             matchColorForTarget: '',
             matchSnapshot: '',
+            ruleset: online.ruleset,
           },
         });
 
@@ -1267,7 +1364,7 @@
 
         if (claimants[0]?.peerId !== online.peerId) throw new Error('That username was just taken.');
 
-        room.publishPresence({ username, usernameKey, status: 'lobby', gameId: '', color: '' });
+        room.publishPresence({ username, usernameKey, status: 'lobby', gameId: '', color: '', ruleset: online.ruleset });
         await wait(180);
       }
 
@@ -1299,6 +1396,7 @@
           cleanupLobbyRoom();
           online.username = username;
           online.usernameKey = username.toLowerCase();
+          online.ruleset = selectedRuleset;
           await claimUsername(username);
           online.connected = true;
           online.incoming = [];
@@ -1329,13 +1427,20 @@
           lobbyMessage.textContent = `You already invited ${username}.`;
           return;
         }
-        const invite = { id: uid(), toPeerId: peerId, toUsername: username, createdAt: Date.now() };
+        const invite = {
+          id: uid(),
+          toPeerId: peerId,
+          toUsername: username,
+          toRuleset: normalizeRuleset(peer.ruleset),
+          createdAt: Date.now(),
+        };
         online.sent.push(invite);
         online.lobbyRoom.publishTopic('lobby-event', {
           type: 'invite',
           inviteId: invite.id,
           fromPeerId: online.peerId,
           fromUsername: online.username,
+          fromRuleset: online.ruleset,
           toPeerId: peerId,
           createdAt: invite.createdAt,
         });
@@ -1373,14 +1478,16 @@
         renderLobby();
       }
 
-      function createInitialSnapshot(gameId, blueName, redName) {
+      function createInitialSnapshot(gameId, blueName, redName, ruleset = 'v1') {
+        ruleset = normalizeRuleset(ruleset);
         return {
           gameId,
           version: 0,
           board: newBoard(),
           current: 'blue',
-          movesLeft: 1,
+          movesLeft: movesForTurn(ruleset, 1),
           turnNumber: 1,
+          ruleset,
           gameOver: false,
           winner: null,
           winReason: '',
@@ -1401,13 +1508,19 @@
         }
 
         const gameId = uid();
-        const snapshot = createInitialSnapshot(gameId, invite.fromUsername, online.username);
+        const inviterColor = randomColor();
+        const accepterColor = oppositeColor(inviterColor);
+        const blueName = inviterColor === 'blue' ? invite.fromUsername : online.username;
+        const redName = inviterColor === 'red' ? invite.fromUsername : online.username;
+        // The invited player is the accepter, so their selected rules govern
+        // the match even when the inviter chose a different version.
+        const snapshot = createInitialSnapshot(gameId, blueName, redName, online.ruleset);
         publishLobbyPresence({
           status: 'playing',
           gameId,
-          color: 'red',
+          color: accepterColor,
           matchToPeerId: invite.fromPeerId,
-          matchColorForTarget: 'blue',
+          matchColorForTarget: inviterColor,
           matchSnapshot: JSON.stringify(snapshot),
         });
         online.lobbyRoom.publishTopic('lobby-event', {
@@ -1417,14 +1530,14 @@
           fromUsername: online.username,
           toPeerId: invite.fromPeerId,
           gameId,
-          color: 'blue',
+          color: inviterColor,
           opponentName: online.username,
           snapshot,
         });
         hideInvitePopup();
         startOnlineGame({
           gameId,
-          color: 'red',
+          color: accepterColor,
           opponentPeerId: invite.fromPeerId,
           opponentName: invite.fromUsername,
           snapshot,
@@ -1439,6 +1552,7 @@
           current: state.current,
           movesLeft: state.movesLeft,
           turnNumber: state.turnNumber,
+          ruleset: state.ruleset,
           gameOver: state.gameOver,
           winner: state.winner || null,
           winReason: state.winReason || '',
@@ -1461,6 +1575,7 @@
           movesLeft: snapshot.movesLeft,
           selected: null,
           turnNumber: snapshot.turnNumber,
+          ruleset: normalizeRuleset(snapshot.ruleset),
           gameOver: Boolean(snapshot.gameOver),
           winner: snapshot.winner || null,
           winReason: snapshot.winReason || '',
@@ -1572,16 +1687,6 @@
         room.publishPresence({ version: online.version, snapshot: JSON.stringify(snapshot) });
       }
 
-      function determineOnlineWinner() {
-        const score = scores();
-        const pieces = pieceCounts();
-        if (score.blue >= WIN_SCORE) return { winner: 'blue', reason: `${state.playerNames.blue} claimed ${score.blue} squares.` };
-        if (score.red >= WIN_SCORE) return { winner: 'red', reason: `${state.playerNames.red} claimed ${score.red} squares.` };
-        if (pieces.blue === 0) return { winner: 'red', reason: `${state.playerNames.blue} has no pieces left.` };
-        if (pieces.red === 0) return { winner: 'blue', reason: `${state.playerNames.red} has no pieces left.` };
-        return null;
-      }
-
       function publishOnlineSnapshot() {
         if (!online.gameRoom) return;
         const snapshot = snapshotFromState();
@@ -1612,7 +1717,7 @@
           ? `${LABELS[moving.type]} captured ${LABELS[captured.type].toLowerCase()}.`
           : `${LABELS[moving.type]} moved to ${coordinate(to.r, to.c)}.`;
 
-        const result = determineOnlineWinner();
+        const result = determineWinner();
         if (result) {
           state.gameOver = true;
           state.winner = result.winner;
@@ -1620,8 +1725,8 @@
           state.message = result.reason;
         } else if (state.movesLeft <= 0 || allLegalMoves(state.current).length === 0) {
           state.current = state.current === 'blue' ? 'red' : 'blue';
-          state.movesLeft = 2;
           state.turnNumber++;
+          state.movesLeft = movesForTurn(state.ruleset, state.turnNumber);
           state.message = state.current === online.color ? 'Your turn.' : `${state.playerNames[state.current]}'s turn.`;
         }
 
@@ -1674,14 +1779,15 @@
       function startSelectedMode() {
         if (selectedMode === 'multiplayer') { joinMultiplayer(); return; }
         hideStartScreen();
-        resetLocalGame(selectedMode);
+        resetLocalGame(selectedMode, selectedRuleset);
       }
 
       boardEl.addEventListener('click', handleCellClick);
       modeButtons.forEach(btn => btn.addEventListener('click', () => setModeButtons(btn.dataset.mode)));
+      rulesetButtons.forEach(btn => btn.addEventListener('click', () => setRulesetButtons(btn.dataset.ruleset)));
       startBtn.addEventListener('click', startSelectedMode);
       usernameInput.addEventListener('keydown', event => { if (event.key === 'Enter' && selectedMode === 'multiplayer') joinMultiplayer(); });
-      restartBtn.addEventListener('click', () => resetLocalGame(state.mode));
+      restartBtn.addEventListener('click', () => resetLocalGame(state.mode, state.ruleset));
       menuBtn.addEventListener('click', () => state.mode === 'multiplayer' ? leaveOnlineGame() : showStartScreen());
       leaveLobbyBtn.addEventListener('click', leaveMultiplayer);
 
@@ -1711,7 +1817,7 @@
 
       playAgainBtn.addEventListener('click', () => {
         if (state.mode === 'multiplayer') leaveOnlineGame();
-        else resetLocalGame(state.mode);
+        else resetLocalGame(state.mode, state.ruleset);
       });
       winnerMenuBtn.addEventListener('click', () => {
         if (state.mode === 'multiplayer') leaveMultiplayer();
@@ -1729,8 +1835,9 @@
       themeButtons.forEach(button => button.addEventListener('click', toggleTheme));
       loadTheme();
       buildLegend();
-      resetLocalGame('bot');
+      resetLocalGame('bot', 'v1');
       setModeButtons('bot');
+      setRulesetButtons('v1');
       showStartScreen();
     })();
   </script>
