@@ -581,6 +581,8 @@
     </div>
   </div>
 
+  <script src="v2_stockfish_bot.js"></script>
+  <script src="rps_v2_wasm.js"></script>
   <script type="module">
     import { init } from "https://cdn.jsdelivr.net/npm/@instantdb/core@1.0.40/+esm";
     (() => {
@@ -650,6 +652,8 @@
 
       let state;
       let botTimer = null;
+      let v2BotRuntime = null;
+      let v2BotLoadPromise = null;
       let selectedMode = 'bot';
       let selectedRuleset = 'v1';
       const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle]'));
@@ -1080,16 +1084,45 @@
         return bestMove;
       }
 
+      function initializeV2Bot() {
+        if (!v2BotLoadPromise) {
+          v2BotLoadPromise = globalThis.RPSV2Wasm.loadEngine('./rps_v2_engine.wasm')
+            .then(runtime => (v2BotRuntime = runtime));
+        }
+        return v2BotLoadPromise;
+      }
+
+      async function chooseV2BotMove() {
+        const runtime = v2BotRuntime || await initializeV2Bot();
+        const result = await globalThis.RPSV2Wasm.chooseWebsiteMove(state.board, {
+          runtime,
+          color: state.current,
+          maxDepth: 10,
+          timeMs: 250,
+          qDepth: 4,
+        });
+        if (result) console.debug('V2 bot search', result.stats);
+        return result ? { from: result.from, to: result.to } : null;
+      }
+
       function startBotTurn() {
         state.botThinking = true; state.message = 'bot is thinking.'; render();
-        const takeMove = () => {
+        const takeMove = async () => {
           if (state.gameOver || state.current !== 'red') return;
-          const move = chooseBotMove();
+          let move;
+          try {
+            move = state.ruleset === 'v2' ? await chooseV2BotMove() : chooseBotMove();
+          } catch (error) {
+            console.error('V2 WASM bot failed; using the built-in bot.', error);
+            state.message = 'WASM bot unavailable; using the built-in bot.';
+            move = chooseBotMove();
+          }
+          if (state.gameOver || state.current !== 'red') return;
           if (!move) { state.botThinking = false; endLocalTurn(); return; }
           state.botThinking = false; performLocalMove(move.from, move.to);
-          if (!state.gameOver && state.current === 'red') { state.botThinking = true; render(); botTimer = setTimeout(takeMove, 420); }
+          if (!state.gameOver && state.current === 'red') { state.botThinking = true; render(); botTimer = setTimeout(() => void takeMove(), 420); }
         };
-        botTimer = setTimeout(takeMove, 450);
+        botTimer = setTimeout(() => void takeMove(), 450);
       }
 
       function instantConfigured() {
@@ -1835,6 +1868,7 @@
       themeButtons.forEach(button => button.addEventListener('click', toggleTheme));
       loadTheme();
       buildLegend();
+      initializeV2Bot().catch(error => console.error('Unable to preload the V2 WASM bot.', error));
       resetLocalGame('bot', 'v1');
       setModeButtons('bot');
       setRulesetButtons('v1');
