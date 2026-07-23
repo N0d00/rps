@@ -424,7 +424,7 @@
       <div class="mode-grid" role="group" aria-label="Choose game mode">
         <button class="mode-button selected" data-mode="bot" type="button">
           <strong>play vs bot</strong>
-          <span>play blue against the local minimax bot.</span>
+          <span>play blue locally; V2 uses the material-focused WASM v2.1 bot.</span>
         </button>
         <button class="mode-button" data-mode="local" type="button">
           <strong>two players</strong>
@@ -444,7 +444,7 @@
           </button>
           <button class="ruleset-button" data-ruleset="v2" type="button">
             <strong>v2 · 1, 1, 1, 1…</strong>
-            <span>one move every turn. win by eliminating every enemy piece or owning more when the board is filled.</span>
+            <span>three of each piece per side; one move every turn. eliminate the enemy or own more when the board fills.</span>
           </button>
         </div>
       </div>
@@ -716,14 +716,23 @@
 
       function emptyCell() { return { territory: null, piece: null }; }
 
-      function newBoard() {
+      function newBoard(ruleset = 'v1') {
         const board = Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, emptyCell));
-        const blueSetup = [
+        const v2 = normalizeRuleset(ruleset) === 'v2';
+        const blueSetup = v2 ? [
+          [3, 0, 'rock'], [3, 1, 'paper'], [3, 2, 'scissors'],
+          [4, 0, 'rock'], [4, 1, 'paper'], [4, 2, 'scissors'],
+          [5, 0, 'rock'], [5, 1, 'paper'], [5, 2, 'scissors']
+        ] : [
           [3, 1, 'rock'], [3, 2, 'rock'],
           [4, 1, 'paper'], [4, 2, 'paper'],
           [5, 1, 'scissors'], [5, 2, 'scissors']
         ];
-        const redSetup = [
+        const redSetup = v2 ? [
+          [3, 6, 'scissors'], [3, 7, 'paper'], [3, 8, 'rock'],
+          [4, 6, 'scissors'], [4, 7, 'paper'], [4, 8, 'rock'],
+          [5, 6, 'scissors'], [5, 7, 'paper'], [5, 8, 'rock']
+        ] : [
           [3, 6, 'scissors'], [3, 7, 'scissors'],
           [4, 6, 'paper'], [4, 7, 'paper'],
           [5, 6, 'rock'], [5, 7, 'rock']
@@ -737,11 +746,11 @@
         clearTimeout(botTimer);
         ruleset = normalizeRuleset(ruleset);
         state = {
-          board: newBoard(), current: 'blue', movesLeft: 1, selected: null,
+          board: newBoard(ruleset), current: 'blue', movesLeft: 1, selected: null,
           turnNumber: 1, gameOver: false, botThinking: false, mode,
           ruleset,
           lastMove: null, message: 'Blue starts. Select a piece.',
-          playerNames: { blue: 'blue', red: mode === 'bot' ? 'bot' : 'red' },
+          playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v2.1' : 'bot') : 'red' },
         };
         winnerOverlay.classList.remove('show');
         render();
@@ -761,7 +770,7 @@
         rulesetButtons.forEach(btn => btn.classList.toggle('selected', btn.dataset.ruleset === selectedRuleset));
         startDescription.textContent = selectedRuleset === 'v1'
           ? 'v1 uses one opening move, then two moves per turn.'
-          : 'v2 uses one move every turn and scores territory only when no white squares remain.';
+          : 'v2 starts with three of each piece, uses one move every turn, and scores territory when no white squares remain.';
         startStatus.textContent = '';
         startStatus.classList.remove('error');
       }
@@ -881,7 +890,7 @@
         modeLabelEl.textContent = state.mode === 'bot' ? 'vs bot' : state.mode === 'local' ? '2 players' : 'online';
         rulesetLabelEl.textContent = state.ruleset;
         rulesListEl.innerHTML = state.ruleset === 'v2'
-          ? '<li>move 1 square in any direction.</li><li>every turn gets <strong>1</strong> move.</li><li>white squares become your color.</li><li>capture only when your piece wins.</li><li>win by taking every opposing piece, or have more territory when no white squares remain.</li>'
+          ? '<li>each side starts with <strong>3</strong> rocks, papers, and scissors.</li><li>move 1 square in any direction; every turn gets <strong>1</strong> move.</li><li>white squares become your color.</li><li>capture only when your piece wins.</li><li>win by taking every opposing piece, or have more territory when no white squares remain.</li>'
           : '<li>move 1 square in any direction.</li><li>blue gets 1 opening move; later turns get 2.</li><li>white squares become your color.</li><li>capture only when your piece wins.</li><li>first to <strong>41</strong> squares wins.</li>';
         statusEl.textContent = state.message;
         const currentName = state.playerNames?.[state.current] || PLAYER_NAME[state.current].toLowerCase();
@@ -1086,7 +1095,7 @@
 
       function initializeV2Bot() {
         if (!v2BotLoadPromise) {
-          v2BotLoadPromise = globalThis.RPSV2Wasm.loadEngine('./rps_v2_engine.wasm')
+          v2BotLoadPromise = globalThis.RPSV2Wasm.loadEngine('./rps_v2_1_engine.wasm')
             .then(runtime => (v2BotRuntime = runtime));
         }
         return v2BotLoadPromise;
@@ -1098,7 +1107,7 @@
           runtime,
           color: state.current,
           maxDepth: 10,
-          timeMs: 250,
+          timeMs: 1000,
           qDepth: 4,
         });
         if (result) console.debug('V2 bot search', result.stats);
@@ -1516,7 +1525,7 @@
         return {
           gameId,
           version: 0,
-          board: newBoard(),
+          board: newBoard(ruleset),
           current: 'blue',
           movesLeft: movesForTurn(ruleset, 1),
           turnNumber: 1,
