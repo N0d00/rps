@@ -36,6 +36,7 @@
       --gold: #f2c44f;
       --left-w: clamp(190px, 18vw, 235px);
       --right-w: clamp(210px, 20vw, 270px);
+      --chat-w: min(340px, calc(100vw - 24px));
     }
 
     html[data-theme="dark"] {
@@ -84,7 +85,10 @@
       gap: 14px;
       padding: 8px 16px;
       align-items: start;
+      transition: padding-right .18s ease;
     }
+
+    body.chat-open .app { padding-right: calc(var(--chat-w) + 16px); }
 
     .side {
       height: calc(100vh - 16px);
@@ -184,8 +188,8 @@
 
     .board-area { height: calc(100vh - 16px); min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
     .board-wrap {
-      width: min(calc(100vh - 16px), calc(100vw - var(--left-w) - 76px));
-      height: min(calc(100vh - 16px), calc(100vw - var(--left-w) - 76px));
+      width: min(calc(100vh - 16px), 100%);
+      height: auto;
       aspect-ratio: 1;
       padding: 0;
       border: 0;
@@ -253,7 +257,7 @@
     .cell { z-index: 1; }
 
     .chat-drawer {
-      position: fixed; inset: 0 0 0 auto; z-index: 25; width: min(340px, calc(100vw - 24px));
+      position: fixed; inset: 0 0 0 auto; z-index: 25; width: var(--chat-w);
       display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--surface);
       border-left: 3px solid var(--ink); box-shadow: -10px 0 28px rgba(0,0,0,.16);
       transform: translateX(102%); transition: transform .18s ease;
@@ -273,7 +277,8 @@
     .chat-form .text-input { min-width: 0; padding: 8px 10px; }
     .chat-toggle { position: relative; }
     .chat-badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; display: none; place-items: center; border: 2px solid var(--surface); border-radius: 10px; background: var(--red-deep); color: white; font-size: .62rem; font-weight: 900; }
-    .chat-badge.show { display: grid; }
+    .chat-badge.show { display: grid; animation: chat-pulse 1.2s ease-in-out infinite; }
+    @keyframes chat-pulse { 50% { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(217,61,97,.2); } }
 
     .cell {
       position: relative;
@@ -443,6 +448,7 @@
       .side { height: auto; padding: 0; border: 0; }
       .board-area { height: auto; order: -1; }
       .board-wrap { width: min(calc(100vw - 28px), 720px); height: min(calc(100vw - 28px), 720px); }
+      body.chat-open .app { padding-right: 14px; }
       .game-title { max-width: none; }
       .mode-grid { grid-template-columns: 1fr; }
       .ruleset-grid { grid-template-columns: 1fr; }
@@ -451,7 +457,7 @@
       .lobby-column + .lobby-column { border-left: 0; border-top: 2px solid var(--ink); }
     }
 
-    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
   </style>
 </head>
 <body>
@@ -565,9 +571,9 @@
         <div id="statusLine" hidden aria-live="polite">blue starts. select a piece.</div>
         <div class="button-row game-actions" style="align-items: center;">
           <button id="menuBtn" class="btn" type="button">menu</button>
+          <button id="resignBtn" class="btn resign-button" type="button">resign</button>
           <button id="showRulesBtn" class="btn circle-btn" type="button" aria-label="Show rules">?</button>
           <button id="chatToggleBtn" class="btn circle-btn chat-toggle" type="button" aria-label="Open game chat" aria-expanded="false">&#128172;<span id="chatBadge" class="chat-badge">0</span></button>
-          <button id="resignBtn" class="small-btn resign-button" type="button">resign</button>
         </div>
       </section>
     </aside>
@@ -726,6 +732,7 @@
       let chatOpen = false;
       let chatItems = [];
       let unreadChat = 0;
+      let notificationAudio = null;
       const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle]'));
 
       function applyTheme(theme) {
@@ -1039,6 +1046,7 @@
 
       function setChatOpen(open) {
         chatOpen = open;
+        document.body.classList.toggle('chat-open', open);
         chatDrawer.classList.toggle('open', open);
         chatDrawer.setAttribute('aria-hidden', String(!open));
         chatToggleBtn.setAttribute('aria-expanded', String(open));
@@ -1067,8 +1075,35 @@
         if (!text) return;
         chatItems.push({ id: event.id || uid(), text, username: online.opponentName, fromPeerId: event.fromPeerId, createdAt: Number(event.createdAt) || Date.now() });
         chatItems = chatItems.slice(-100);
-        if (!chatOpen) unreadChat++;
+        if (!chatOpen) {
+          unreadChat++;
+          playChatPing();
+        }
         renderChat();
+      }
+
+      function prepareNotificationAudio() {
+        if (!notificationAudio) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) notificationAudio = new AudioContext();
+        }
+        notificationAudio?.resume?.().catch(() => {});
+      }
+
+      function playChatPing() {
+        if (!notificationAudio || notificationAudio.state !== 'running') return;
+        const now = notificationAudio.currentTime;
+        const oscillator = notificationAudio.createOscillator();
+        const gain = notificationAudio.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(740, now);
+        oscillator.frequency.exponentialRampToValueAtTime(980, now + .11);
+        gain.gain.setValueAtTime(.0001, now);
+        gain.gain.exponentialRampToValueAtTime(.12, now + .015);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + .2);
+        oscillator.connect(gain).connect(notificationAudio.destination);
+        oscillator.start(now);
+        oscillator.stop(now + .21);
       }
 
       function sendChat() {
@@ -2054,6 +2089,7 @@
       }
 
       boardEl.addEventListener('click', handleCellClick);
+      document.addEventListener('pointerdown', prepareNotificationAudio, { once: true });
       boardEl.addEventListener('contextmenu', event => event.preventDefault());
       boardEl.addEventListener('pointerdown', event => {
         if (event.button !== 2) return;
