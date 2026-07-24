@@ -80,7 +80,7 @@
     .app {
       height: 100vh;
       display: grid;
-      grid-template-columns: var(--left-w) minmax(0, 1fr) var(--right-w);
+      grid-template-columns: var(--left-w) minmax(0, 1fr);
       gap: 14px;
       padding: 8px 16px;
       align-items: start;
@@ -93,7 +93,6 @@
     }
 
     .left-side { padding-right: 16px; border-right: 2px solid var(--ink); }
-    .right-side { padding-left: 16px; border-left: 2px solid var(--ink); }
 
     .section { padding: 12px 0; border-bottom: 1px solid var(--line); }
     .section:first-child { padding-top: 4px; }
@@ -184,8 +183,8 @@
 
     .board-area { height: calc(100vh - 16px); min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
     .board-wrap {
-      width: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
-      height: min(calc(100vh - 16px), calc(100vw - var(--left-w) - var(--right-w) - 76px));
+      width: min(calc(100vh - 16px), calc(100vw - var(--left-w) - 76px));
+      height: min(calc(100vh - 16px), calc(100vw - var(--left-w) - 76px));
       aspect-ratio: 1;
       padding: 0;
       border: 0;
@@ -562,14 +561,6 @@
         </div>
       </div>
     </section>
-
-    <aside class="side right-side" aria-label="Rules and piece info">
-      <section class="section">
-        <p class="section-label">combat</p>
-        <div id="legend" class="legend-row"></div>
-        <div class="beats-line">rock → scissors<br>scissors → paper<br>paper → rock</div>
-      </section>
-    </aside>
   </main>
 
   <div id="winnerOverlay" class="winner-overlay" role="dialog" aria-modal="true" aria-labelledby="winnerTitle">
@@ -593,6 +584,11 @@
       <ol id="rulesList" class="rules-list" style="margin-left: 20px; line-height: 1.6; font-size: 0.98rem; padding-left: 0;">
         <!-- Filled dynamically -->
       </ol>
+      <section class="section" style="margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px;">
+        <p class="section-label">combat</p>
+        <div id="legend" class="legend-row"></div>
+        <div class="beats-line" style="margin-top: 8px;">rock → scissors<br>scissors → paper<br>paper → rock</div>
+      </section>
       <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
         <button id="closeRulesBtn2" class="btn primary" type="button">close</button>
       </div>
