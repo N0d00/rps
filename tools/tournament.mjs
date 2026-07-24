@@ -2,6 +2,7 @@
 
 import { availableParallelism } from 'node:os';
 import { readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, parentPort, workerData, Worker } from 'node:worker_threads';
 
@@ -9,13 +10,15 @@ const SIZE = 9;
 const TYPES = ['rock', 'paper', 'scissors'];
 const BEATS = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
 const COLORS = ['blue', 'red'];
-const BOTS = [
+const ALL_BOTS = [
   { id: 'javascript-minimax', label: 'JavaScript minimax' },
   { id: 'rps-v2-engine', label: 'rps_v2_engine.wasm' },
   { id: 'rps-v2-1-engine', label: 'rps_v2_1_engine.wasm' },
+  { id: 'rps-v3-engine', label: 'rps_v3_engine.wasm' },
+  { id: 'rps-v4-engine', label: 'rps_v4_engine.wasm' },
+  { id: 'rps-v5-engine', label: 'rps_v5_engine.wasm' },
 ];
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const RESULT_PATH = new URL('../tournament-results.json', import.meta.url);
 
 function emptyCell() {
   return { territory: null, piece: null };
@@ -280,7 +283,15 @@ const wasmRuntimes = new Map();
 
 async function loadWasm(botId) {
   if (wasmRuntimes.has(botId)) return wasmRuntimes.get(botId);
-  const filename = botId === 'rps-v2-engine' ? 'rps_v2_engine.wasm' : 'rps_v2_1_engine.wasm';
+  const filenames = {
+    'rps-v2-engine': 'rps_v2_engine.wasm',
+    'rps-v2-1-engine': 'rps_v2_1_engine.wasm',
+    'rps-v3-engine': 'rps_v3_engine.wasm',
+    'rps-v4-engine': 'rps_v4_engine.wasm',
+    'rps-v5-engine': 'rps_v5_engine.wasm',
+  };
+  const filename = filenames[botId];
+  if (!filename) throw new Error(`Unknown WASM bot: ${botId}`);
   const bytes = await readFile(`${ROOT}/${filename}`);
   const { instance } = await WebAssembly.instantiate(bytes, { env: { now_ms: () => performance.now() } });
   instance.exports.init_engine();
@@ -302,7 +313,7 @@ async function chooseWasmMove(botId, board, color, config) {
   engine.set_side(colorCode[color]);
   engine.set_qdepth(config.qDepth);
   engine.finalize_position();
-  const packed = engine.search_best_move(config.maxDepth, config.timeMs, 0);
+  const packed = engine.search_best_move(config.maxDepth, config.timeMs, config.maxNodes);
   if (packed < 0) return null;
   const fromSquare = Math.floor(packed / 81);
   const toSquare = packed % 81;
@@ -321,6 +332,7 @@ async function playGame(task, config) {
   const opening = makeOpening(config.layout, task.seed, config.openingPlies);
   const board = opening.board;
   let current = opening.current;
+  let consecutivePasses = 0;
   const moves = [];
   let result = determineWinner(board);
   for (const botId of new Set(Object.values(task.colors))) {
@@ -331,9 +343,22 @@ async function playGame(task, config) {
     const legal = allLegalMoves(current, board);
     if (!legal.length) {
       moves.push({ ply, player: current, bot: botId, passed: true });
+      consecutivePasses++;
+      if (consecutivePasses >= 2) {
+        const territory = scores(board);
+        const pieces = pieceCounts(board);
+        const winner = territory.blue !== territory.red
+          ? (territory.blue > territory.red ? 'blue' : 'red')
+          : pieces.blue !== pieces.red
+            ? (pieces.blue > pieces.red ? 'blue' : 'red')
+            : null;
+        result = winner ? { winner, reason: 'two-pass adjudication' } : { winner: null, reason: 'two-pass draw' };
+        break;
+      }
       current = current === 'blue' ? 'red' : 'blue';
       continue;
     }
+    consecutivePasses = 0;
     const choice = botId === 'javascript-minimax'
       ? chooseJavaScriptMove(board, current)
       : await chooseWasmMove(botId, board, current, config);
@@ -353,7 +378,7 @@ async function playGame(task, config) {
     matchedSeed: task.seed,
     colors: task.colors,
     winnerColor: result?.winner ?? null,
-    winnerBot: result ? task.colors[result.winner] : null,
+    winnerBot: result?.winner ? task.colors[result.winner] : null,
     outcome: result?.reason ?? 'max plies draw',
     plies: opening.moves.length + moves.length,
     openingMoves: opening.moves,
@@ -369,12 +394,15 @@ function usage() {
     `  --games-per-pairing N  Even number of games (default: 10)\n` +
     `  --time-ms N            WASM time per move (default: 250)\n` +
     `  --max-plies N          Draw limit including opening (default: 200)\n` +
-    `  --layout 6|9           Initial pieces per side (default: 6)\n` +
+    `  --layout 6|9           Initial pieces per side (default: 9)\n` +
     `  --concurrency N        Worker count (default: available CPUs)\n` +
     `  --opening-plies N      Seeded random opening length (default: 4)\n` +
     `  --seed TEXT            Tournament seed (default: rps-v2-tournament)\n` +
     `  --max-depth N          WASM maximum depth (default: 10)\n` +
     `  --q-depth N            WASM quiescence depth (default: 4)\n` +
+    `  --max-nodes N          Node limit per move; 0 disables (default: 0)\n` +
+    `  --bots IDS             Comma-separated bot IDs (default: all)\n` +
+    `  --output PATH          Result file relative to the repo (default: tournament-results.json)\n` +
     `  --help                 Show this help`;
 }
 
@@ -383,40 +411,49 @@ function parseArgs(argv) {
     gamesPerPairing: 10,
     timeMs: 250,
     maxPlies: 200,
-    layout: 6,
+    layout: 9,
     concurrency: availableParallelism(),
     openingPlies: 4,
     seed: 'rps-v2-tournament',
     maxDepth: 10,
     qDepth: 4,
+    maxNodes: 0,
+    bots: ALL_BOTS.map(bot => bot.id).join(','),
+    output: 'tournament-results.json',
   };
   const options = {
     '--games-per-pairing': 'gamesPerPairing', '--time-ms': 'timeMs', '--max-plies': 'maxPlies',
     '--layout': 'layout', '--concurrency': 'concurrency', '--opening-plies': 'openingPlies',
-    '--seed': 'seed', '--max-depth': 'maxDepth', '--q-depth': 'qDepth',
+    '--seed': 'seed', '--max-depth': 'maxDepth', '--q-depth': 'qDepth', '--max-nodes': 'maxNodes',
+    '--bots': 'bots', '--output': 'output',
   };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--help') return { help: true };
     const key = options[argv[i]];
     if (!key) throw new Error(`Unknown option: ${argv[i]}`);
     if (argv[i + 1] === undefined) throw new Error(`Missing value for ${argv[i]}`);
-    config[key] = key === 'seed' ? argv[++i] : Number(argv[++i]);
+    config[key] = ['seed', 'bots', 'output'].includes(key) ? argv[++i] : Number(argv[++i]);
   }
-  for (const key of ['gamesPerPairing', 'timeMs', 'maxPlies', 'layout', 'concurrency', 'openingPlies', 'maxDepth', 'qDepth']) {
-    if (!Number.isInteger(config[key]) || config[key] < (['openingPlies', 'qDepth'].includes(key) ? 0 : 1)) {
+  for (const key of ['gamesPerPairing', 'timeMs', 'maxPlies', 'layout', 'concurrency', 'openingPlies', 'maxDepth', 'qDepth', 'maxNodes']) {
+    if (!Number.isInteger(config[key]) || config[key] < (['openingPlies', 'qDepth', 'maxNodes'].includes(key) ? 0 : 1)) {
       throw new Error(`Invalid value for ${key}`);
     }
   }
   if (config.gamesPerPairing % 2 !== 0) throw new Error('--games-per-pairing must be even for matched color assignments');
   if (![6, 9].includes(config.layout)) throw new Error('--layout must be 6 or 9');
   if (config.openingPlies > config.maxPlies) throw new Error('--opening-plies cannot exceed --max-plies');
+  const requested = config.bots.split(',').filter(Boolean);
+  config.botList = ALL_BOTS.filter(bot => requested.includes(bot.id));
+  if (config.botList.length !== requested.length || config.botList.length < 2) {
+    throw new Error('--bots must contain at least two distinct known bot IDs');
+  }
   return config;
 }
 
 function makeTasks(config) {
   const tasks = [];
-  for (let a = 0; a < BOTS.length; a++) for (let b = a + 1; b < BOTS.length; b++) {
-    const pairing = [BOTS[a].id, BOTS[b].id];
+  for (let a = 0; a < config.botList.length; a++) for (let b = a + 1; b < config.botList.length; b++) {
+    const pairing = [config.botList[a].id, config.botList[b].id];
     for (let match = 0; match < config.gamesPerPairing / 2; match++) {
       const seed = `${config.seed}:opening-${match}`;
       tasks.push({ id: `${a}-${b}-${match}-a`, pairing, seed, colors: { blue: pairing[0], red: pairing[1] } });
@@ -448,8 +485,8 @@ async function runWorkers(tasks, config) {
   return results.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-function summarize(games) {
-  const standings = BOTS.map(bot => ({ bot: bot.id, label: bot.label, wins: 0, draws: 0, losses: 0, points: 0 }));
+function summarize(games, bots) {
+  const standings = bots.map(bot => ({ bot: bot.id, label: bot.label, wins: 0, draws: 0, losses: 0, points: 0 }));
   const byBot = new Map(standings.map(row => [row.bot, row]));
   for (const game of games) {
     const [a, b] = game.pairing;
@@ -467,9 +504,9 @@ function summarize(games) {
   }
   standings.sort((a, b) => b.points - a.points || b.wins - a.wins || a.bot.localeCompare(b.bot));
   const pairings = [];
-  for (let a = 0; a < BOTS.length; a++) for (let b = a + 1; b < BOTS.length; b++) {
-    const left = BOTS[a].id;
-    const right = BOTS[b].id;
+  for (let a = 0; a < bots.length; a++) for (let b = a + 1; b < bots.length; b++) {
+    const left = bots[a].id;
+    const right = bots[b].id;
     const relevant = games.filter(game => game.pairing[0] === left && game.pairing[1] === right);
     pairings.push({
       bots: [left, right],
@@ -497,7 +534,7 @@ async function main() {
   const tasks = makeTasks(config);
   console.log(`Running ${tasks.length} games with ${Math.min(config.concurrency, tasks.length)} workers...`);
   const games = await runWorkers(tasks, config);
-  const summary = summarize(games);
+  const summary = summarize(games, config.botList);
   console.log('\nStandings');
   console.log('Bot                         W  D  L  Pts');
   for (const row of summary.standings) {
@@ -511,13 +548,14 @@ async function main() {
     formatVersion: 1,
     generatedAt: new Date().toISOString(),
     config,
-    bots: BOTS,
+    bots: config.botList,
     standings: summary.standings,
     pairings: summary.pairings,
     games,
   };
-  await writeFile(RESULT_PATH, `${JSON.stringify(report, null, 2)}\n`);
-  console.log(`\nDetailed results: ${fileURLToPath(RESULT_PATH)}`);
+  const resultPath = resolve(ROOT, config.output);
+  await writeFile(resultPath, `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`\nDetailed results: ${resultPath}`);
 }
 
 if (isMainThread) {

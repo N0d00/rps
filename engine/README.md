@@ -21,3 +21,9 @@ clang++ --target=wasm32-unknown-unknown -O3 -fno-builtin -nostdlib \
   -Wl,--initial-memory=16777216 -Wl,--max-memory=134217728 \
   engine/rps_v2_1_engine.cpp -o rps_v2_1_engine.wasm
 ```
+
+`rps_v3_engine.cpp` is the source-level experimental successor. It adds full
+move-list capacity, pass-state hashing, normalized transposition-table mate
+scores, threat-aware LMR and quiescence, history aging, prey-pursuit ordering,
+and material-focused tactical evaluation. Build it with the same command,
+substituting the V3 input and output filenames.
