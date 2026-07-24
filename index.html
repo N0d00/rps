@@ -457,6 +457,11 @@
     .invite-popup p { margin: 8px 0 0; color: var(--muted); line-height: 1.4; }
     .invite-popup-actions { display: flex; gap: 8px; margin-top: 18px; }
     .invite-popup-actions .btn { flex: 1; }
+    .resign-popup-panel { border-color: var(--red-deep); box-shadow: 0 6px 0 color-mix(in srgb, var(--red-deep) 20%, transparent); }
+    .resign-popup-mark { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 14px; border: 2px solid var(--red-deep); border-radius: 50%; color: var(--red-deep); font-size: 1.35rem; font-weight: 900; }
+    .resign-popup .invite-popup-label { color: var(--red-deep); }
+    .resign-confirm { background: var(--red-deep); border-color: var(--red-deep); color: #fff; }
+    .resign-confirm:hover { background: var(--red-deep); filter: brightness(.94); }
 
     @media (max-width: 900px) {
       :root { --chat-w: 100vw; }
@@ -588,6 +593,19 @@
       <div class="invite-popup-actions">
         <button id="invitePopupAccept" class="btn primary" type="button">accept</button>
         <button id="invitePopupDecline" class="btn" type="button">decline</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resignPopup" class="invite-popup resign-popup" role="dialog" aria-modal="true" aria-labelledby="resignPopupTitle" aria-describedby="resignPopupText">
+    <div class="invite-popup-panel resign-popup-panel">
+      <div class="resign-popup-mark" aria-hidden="true">!</div>
+      <p class="invite-popup-label">leave this match?</p>
+      <h2 id="resignPopupTitle">confirm resignation</h2>
+      <p id="resignPopupText">Your opponent will win immediately. This cannot be undone.</p>
+      <div class="invite-popup-actions">
+        <button id="cancelResignBtn" class="btn" type="button">keep playing</button>
+        <button id="confirmResignBtn" class="btn resign-confirm" type="button">resign game</button>
       </div>
     </div>
   </div>
@@ -771,6 +789,9 @@
       const invitePopupText = byId('invitePopupText');
       const invitePopupAccept = byId('invitePopupAccept');
       const invitePopupDecline = byId('invitePopupDecline');
+      const resignPopup = byId('resignPopup');
+      const cancelResignBtn = byId('cancelResignBtn');
+      const confirmResignBtn = byId('confirmResignBtn');
 
       let state;
       let botTimer = null;
@@ -1168,8 +1189,22 @@
         if (state.mode === 'multiplayer' && online.gameRoom) online.gameRoom.publishTopic('chat', item);
       }
 
+      function requestResign() {
+        if (state.gameOver) return;
+        const opponent = state.mode === 'multiplayer' ? online.opponentName : state.playerNames[oppositeColor(state.current)];
+        byId('resignPopupText').textContent = `${opponent || 'Your opponent'} will win immediately. This cannot be undone.`;
+        resignPopup.classList.add('show');
+        setTimeout(() => cancelResignBtn.focus(), 0);
+      }
+
+      function closeResignPopup() {
+        resignPopup.classList.remove('show');
+        resignBtn.focus();
+      }
+
       function resignGame() {
-        if (state.gameOver || !confirm('Resign this game?')) return;
+        if (state.gameOver) return;
+        resignPopup.classList.remove('show');
         const loser = state.mode === 'multiplayer' ? online.color : state.current;
         const winner = oppositeColor(loser);
         const loserName = state.playerNames[loser] || loser;
@@ -2177,7 +2212,13 @@
       chatToggleBtn.addEventListener('click', () => setChatOpen(!chatOpen));
       chatCloseBtn.addEventListener('click', () => setChatOpen(false));
       chatForm.addEventListener('submit', event => { event.preventDefault(); sendChat(); });
-      resignBtn.addEventListener('click', resignGame);
+      resignBtn.addEventListener('click', requestResign);
+      cancelResignBtn.addEventListener('click', closeResignPopup);
+      confirmResignBtn.addEventListener('click', resignGame);
+      resignPopup.addEventListener('click', event => { if (event.target === resignPopup) closeResignPopup(); });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && resignPopup.classList.contains('show')) closeResignPopup();
+      });
       showRulesBtn.addEventListener('click', () => {
         rulesOverlay.classList.add('show');
       });
