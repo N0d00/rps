@@ -138,6 +138,7 @@
     .status-text { color: var(--muted); font-size: .9rem; line-height: 1.35; min-height: 2.45em; }
 
     .button-row { display: flex; gap: 8px; margin-top: 11px; }
+    .game-actions { flex-wrap: wrap; }
     .btn, .mode-button, .small-btn {
       appearance: none;
       border: 2px solid var(--ink);
@@ -233,6 +234,7 @@
     }
 
     .board {
+      position: relative;
       grid-column: 2;
       grid-row: 2;
       width: 100%;
@@ -245,6 +247,33 @@
       background: var(--board-line);
       touch-action: manipulation;
     }
+
+    .arrow-layer { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); z-index: 4; overflow: visible; pointer-events: none; }
+    .arrow-line { fill: none; stroke: var(--gold); stroke-width: 1.8; stroke-linecap: round; opacity: .92; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+    .cell { z-index: 1; }
+
+    .chat-drawer {
+      position: fixed; inset: 0 auto 0 0; z-index: 25; width: min(340px, calc(100vw - 24px));
+      display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--surface);
+      border-right: 3px solid var(--ink); box-shadow: 10px 0 28px rgba(0,0,0,.16);
+      transform: translateX(-102%); transition: transform .18s ease;
+    }
+    .chat-drawer.open { transform: translateX(0); }
+    .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px; border-bottom: 2px solid var(--ink); }
+    .chat-header h2 { margin: 0; font-size: 1rem; letter-spacing: .1em; text-transform: uppercase; }
+    .chat-close { border: 0; background: transparent; font-size: 1.55rem; line-height: 1; cursor: pointer; }
+    .chat-messages { min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .chat-empty { margin: auto; max-width: 20ch; color: var(--muted); text-align: center; font-size: .88rem; line-height: 1.45; }
+    .chat-message { align-self: flex-start; max-width: 88%; }
+    .chat-message.mine { align-self: flex-end; text-align: right; }
+    .chat-meta { margin-bottom: 3px; color: var(--muted); font-size: .68rem; font-weight: 750; }
+    .chat-bubble { display: inline-block; padding: 8px 10px; border: 1px solid var(--line); border-radius: 3px; background: var(--hover); text-align: left; overflow-wrap: anywhere; }
+    .chat-message.mine .chat-bubble { border-color: var(--ink); background: var(--ink); color: var(--primary-text); }
+    .chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; border-top: 2px solid var(--ink); }
+    .chat-form .text-input { min-width: 0; padding: 8px 10px; }
+    .chat-toggle { position: relative; }
+    .chat-badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; display: none; place-items: center; border: 2px solid var(--surface); border-radius: 10px; background: var(--red-deep); color: white; font-size: .62rem; font-weight: 900; }
+    .chat-badge.show { display: grid; }
 
     .cell {
       position: relative;
@@ -535,10 +564,12 @@
       <section class="section">
         <p class="section-label">status</p>
         <div id="statusLine" class="status-text" aria-live="polite">blue starts. select a piece.</div>
-        <div class="button-row" style="align-items: center;">
+        <div class="button-row game-actions" style="align-items: center;">
           <button id="restartBtn" class="btn" type="button">restart</button>
           <button id="menuBtn" class="btn" type="button">menu</button>
           <button id="showRulesBtn" class="btn circle-btn" type="button" aria-label="Show rules">?</button>
+          <button id="chatToggleBtn" class="btn circle-btn chat-toggle" type="button" aria-label="Open game chat" aria-expanded="false">&#128172;<span id="chatBadge" class="chat-badge">0</span></button>
+          <button id="resignBtn" class="small-btn danger" type="button">resign</button>
         </div>
       </section>
     </aside>
@@ -562,6 +593,15 @@
       </div>
     </section>
   </main>
+
+  <aside id="chatDrawer" class="chat-drawer" aria-label="Game chat" aria-hidden="true">
+    <header class="chat-header"><h2>game chat</h2><button id="chatCloseBtn" class="chat-close" type="button" aria-label="Close game chat">&times;</button></header>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"></div>
+    <form id="chatForm" class="chat-form">
+      <input id="chatInput" class="text-input" maxlength="240" autocomplete="off" placeholder="message your opponent" aria-label="Chat message" />
+      <button class="small-btn primary" type="submit">send</button>
+    </form>
+  </aside>
 
   <div id="winnerOverlay" class="winner-overlay" role="dialog" aria-modal="true" aria-labelledby="winnerTitle">
     <div class="winner-panel">
@@ -638,6 +678,14 @@
       const showRulesBtn = byId('showRulesBtn');
       const closeRulesBtn = byId('closeRulesBtn');
       const closeRulesBtn2 = byId('closeRulesBtn2');
+      const chatToggleBtn = byId('chatToggleBtn');
+      const chatBadge = byId('chatBadge');
+      const chatDrawer = byId('chatDrawer');
+      const chatCloseBtn = byId('chatCloseBtn');
+      const chatMessages = byId('chatMessages');
+      const chatForm = byId('chatForm');
+      const chatInput = byId('chatInput');
+      const resignBtn = byId('resignBtn');
       const playAgainBtn = byId('playAgainBtn');
       const winnerMenuBtn = byId('winnerMenuBtn');
       const winnerOverlay = byId('winnerOverlay');
@@ -675,6 +723,12 @@
       let v2BotLoadPromise = null;
       let selectedMode = 'bot';
       let selectedRuleset = 'v1';
+      let arrows = [];
+      let arrowStart = null;
+      let arrowPreview = null;
+      let chatOpen = false;
+      let chatItems = [];
+      let unreadChat = 0;
       const themeButtons = Array.from(document.querySelectorAll('[data-theme-toggle]'));
 
       function applyTheme(theme) {
@@ -717,6 +771,7 @@
         gameUnsubPresence: null,
         gameUnsubState: null,
         gameUnsubForfeit: null,
+        gameUnsubChat: null,
         gamePresence: null,
         opponentPeerId: null,
         opponentName: '',
@@ -773,6 +828,10 @@
           moveHistory: [],
         };
         winnerOverlay.classList.remove('show');
+        arrows = [];
+        chatItems = [];
+        unreadChat = 0;
+        renderChat();
         render();
       }
 
@@ -932,6 +991,7 @@
           cells.push(`<button class="${classes.join(' ')}" role="gridcell" data-r="${r}" data-c="${c}" aria-label="${coordinate(r,c)}">${piece}</button>`);
         }
         boardEl.innerHTML = cells.join('');
+        renderArrows();
 
         const score = scores();
         blueScoreEl.textContent = score.blue;
@@ -951,6 +1011,97 @@
         lastMoveLabelEl.textContent = state.lastMove ? `${coordinate(state.lastMove.from.r, state.lastMove.from.c)} → ${coordinate(state.lastMove.to.r, state.lastMove.to.c)}` : 'none';
         restartBtn.style.display = state.mode === 'multiplayer' ? 'none' : '';
         menuBtn.textContent = state.mode === 'multiplayer' ? 'lobby' : 'menu';
+        resignBtn.disabled = state.gameOver;
+      }
+
+      function arrowPoint(square) {
+        return { x: (square.c + .5) * 100 / SIZE, y: (square.r + .5) * 100 / SIZE };
+      }
+
+      function renderArrows() {
+        const shown = arrowPreview ? [...arrows, arrowPreview] : arrows;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'arrow-layer');
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.innerHTML = '<defs><marker id="boardArrowHead" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="var(--gold)"/></marker></defs>' + shown.map(arrow => {
+          const from = arrowPoint(arrow.from), to = arrowPoint(arrow.to);
+          return `<line class="arrow-line" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" marker-end="url(#boardArrowHead)"/>`;
+        }).join('');
+        boardEl.append(svg);
+      }
+
+      function squareFromPointer(event) {
+        const rect = boardEl.getBoundingClientRect();
+        const inset = 4;
+        const size = rect.width - inset * 2;
+        const c = Math.floor((event.clientX - rect.left - inset) / size * SIZE);
+        const r = Math.floor((event.clientY - rect.top - inset) / size * SIZE);
+        return inBounds(r, c) ? { r, c } : null;
+      }
+
+      function setChatOpen(open) {
+        chatOpen = open;
+        chatDrawer.classList.toggle('open', open);
+        chatDrawer.setAttribute('aria-hidden', String(!open));
+        chatToggleBtn.setAttribute('aria-expanded', String(open));
+        if (open) {
+          unreadChat = 0;
+          renderChat();
+          setTimeout(() => chatInput.focus(), 180);
+        }
+      }
+
+      function renderChat() {
+        chatBadge.textContent = unreadChat > 9 ? '9+' : String(unreadChat);
+        chatBadge.classList.toggle('show', unreadChat > 0);
+        chatInput.placeholder = state?.mode === 'multiplayer' ? 'message your opponent' : 'add a local note';
+        chatMessages.innerHTML = chatItems.length ? chatItems.map(item => {
+          const mine = item.fromPeerId === online.peerId || item.local;
+          const time = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return `<div class="chat-message${mine ? ' mine' : ''}"><div class="chat-meta">${escapeHtml(item.username)} · ${time}</div><div class="chat-bubble">${escapeHtml(item.text)}</div></div>`;
+        }).join('') : '<div class="chat-empty">No messages yet.<br>Keep it friendly.</div>';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function receiveChat(event) {
+        if (!event || event.gameId !== online.gameId || event.fromPeerId !== online.opponentPeerId || typeof event.text !== 'string') return;
+        const text = event.text.trim().slice(0, 240);
+        if (!text) return;
+        chatItems.push({ id: event.id || uid(), text, username: online.opponentName, fromPeerId: event.fromPeerId, createdAt: Number(event.createdAt) || Date.now() });
+        chatItems = chatItems.slice(-100);
+        if (!chatOpen) unreadChat++;
+        renderChat();
+      }
+
+      function sendChat() {
+        const text = chatInput.value.trim().slice(0, 240);
+        if (!text || state.gameOver) return;
+        const item = { id: uid(), gameId: online.gameId, text, username: state.mode === 'multiplayer' ? online.username : (state.playerNames[state.current] || state.current), fromPeerId: online.peerId, createdAt: Date.now(), local: state.mode !== 'multiplayer' };
+        chatItems.push(item);
+        chatInput.value = '';
+        renderChat();
+        if (state.mode === 'multiplayer' && online.gameRoom) online.gameRoom.publishTopic('chat', item);
+      }
+
+      function resignGame() {
+        if (state.gameOver || !confirm('Resign this game?')) return;
+        const loser = state.mode === 'multiplayer' ? online.color : state.current;
+        const winner = oppositeColor(loser);
+        const loserName = state.playerNames[loser] || loser;
+        state.gameOver = true;
+        state.winner = winner;
+        state.winReason = `${loserName} resigned.`;
+        state.message = state.winReason;
+        state.botThinking = false;
+        clearTimeout(botTimer);
+        if (state.mode === 'multiplayer') {
+          online.version++;
+          try { online.gameRoom?.publishTopic('forfeit', { fromPeerId: online.peerId, reason: state.winReason }); } catch {}
+          publishOnlineSnapshot();
+        }
+        render();
+        showWinner(winner, state.winReason);
       }
 
       function handleCellClick(event) {
@@ -1707,10 +1858,12 @@
         online.gameUnsubPresence?.();
         online.gameUnsubState?.();
         online.gameUnsubForfeit?.();
+        online.gameUnsubChat?.();
         online.gameRoom?.leaveRoom();
         online.gameUnsubPresence = null;
         online.gameUnsubState = null;
         online.gameUnsubForfeit = null;
+        online.gameUnsubChat = null;
         online.gameRoom = null;
         online.gamePresence = null;
         online.opponentSeen = false;
@@ -1757,6 +1910,11 @@
         online.opponentName = opponentName;
         online.version = -1;
         online.opponentSeen = false;
+        arrows = [];
+        chatItems = [];
+        unreadChat = 0;
+        setChatOpen(false);
+        renderChat();
         winnerOverlay.classList.remove('show');
 
         publishLobbyPresence({ status: 'playing', gameId, color });
@@ -1786,6 +1944,7 @@
           showWinner(online.color, state.winReason);
           publishOnlineSnapshot();
         });
+        online.gameUnsubChat = room.subscribeTopic('chat', receiveChat);
         online.gameUnsubPresence = room.subscribePresence({}, handleGamePresence);
         applyOnlineSnapshot(snapshot, true);
         state.message = color === 'blue' ? 'Your turn.' : `Waiting for ${opponentName}.`;
@@ -1898,6 +2057,32 @@
       }
 
       boardEl.addEventListener('click', handleCellClick);
+      boardEl.addEventListener('contextmenu', event => event.preventDefault());
+      boardEl.addEventListener('pointerdown', event => {
+        if (event.button !== 2) return;
+        event.preventDefault();
+        arrowStart = squareFromPointer(event);
+        arrowPreview = null;
+        boardEl.setPointerCapture?.(event.pointerId);
+      });
+      boardEl.addEventListener('pointermove', event => {
+        if (!arrowStart || (event.buttons & 2) === 0) return;
+        const to = squareFromPointer(event);
+        if (!to || (to.r === arrowStart.r && to.c === arrowStart.c)) return;
+        arrowPreview = { from: arrowStart, to };
+        render();
+      });
+      boardEl.addEventListener('pointerup', event => {
+        if (event.button !== 2 || !arrowStart) return;
+        const to = squareFromPointer(event);
+        if (to && (to.r !== arrowStart.r || to.c !== arrowStart.c)) {
+          const duplicate = arrows.findIndex(arrow => arrow.from.r === arrowStart.r && arrow.from.c === arrowStart.c && arrow.to.r === to.r && arrow.to.c === to.c);
+          if (duplicate >= 0) arrows.splice(duplicate, 1); else arrows.push({ from: arrowStart, to });
+        }
+        arrowStart = null;
+        arrowPreview = null;
+        render();
+      });
       modeButtons.forEach(btn => btn.addEventListener('click', () => setModeButtons(btn.dataset.mode)));
       rulesetButtons.forEach(btn => btn.addEventListener('click', () => setRulesetButtons(btn.dataset.ruleset)));
       startBtn.addEventListener('click', startSelectedMode);
@@ -1905,6 +2090,10 @@
       restartBtn.addEventListener('click', () => resetLocalGame(state.mode, state.ruleset));
       menuBtn.addEventListener('click', () => state.mode === 'multiplayer' ? leaveOnlineGame() : showStartScreen());
       copyLogsBtn.addEventListener('click', copyGameLogs);
+      chatToggleBtn.addEventListener('click', () => setChatOpen(!chatOpen));
+      chatCloseBtn.addEventListener('click', () => setChatOpen(false));
+      chatForm.addEventListener('submit', event => { event.preventDefault(); sendChat(); });
+      resignBtn.addEventListener('click', resignGame);
       showRulesBtn.addEventListener('click', () => {
         rulesOverlay.classList.add('show');
       });
