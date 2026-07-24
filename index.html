@@ -154,6 +154,17 @@
     .btn.primary, .small-btn.primary { background: var(--ink); color: var(--primary-text); }
     .btn.danger, .small-btn.danger { color: var(--red-deep); border-color: var(--red-deep); }
     .small-btn { padding: 5px 9px; font-size: .82rem; }
+    .circle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50% !important;
+      padding: 0 !important;
+      font-size: 1.15rem;
+      flex-shrink: 0;
+    }
     button:disabled { cursor: default; opacity: .48; transform: none !important; }
 
     .theme-button {
@@ -520,13 +531,15 @@
         <div class="match-line"><span class="dim">rules</span><span id="rulesetLabel" class="strong rules-badge">v1</span></div>
         <div class="match-line"><span class="dim">turn</span><span id="turnNumber" class="strong">1</span></div>
         <div class="match-line"><span class="dim">last</span><span id="lastMoveLabel" class="strong">none</span></div>
+        <div style="margin-top: 10px;"><button id="copyLogsBtn" class="small-btn" type="button" style="width: 100%;">copy logs</button></div>
       </section>
       <section class="section">
         <p class="section-label">status</p>
         <div id="statusLine" class="status-text" aria-live="polite">blue starts. select a piece.</div>
-        <div class="button-row">
+        <div class="button-row" style="align-items: center;">
           <button id="restartBtn" class="btn" type="button">restart</button>
           <button id="menuBtn" class="btn" type="button">menu</button>
+          <button id="showRulesBtn" class="btn circle-btn" type="button" aria-label="Show rules">?</button>
         </div>
       </section>
     </aside>
@@ -556,16 +569,6 @@
         <div id="legend" class="legend-row"></div>
         <div class="beats-line">rock → scissors<br>scissors → paper<br>paper → rock</div>
       </section>
-      <section class="section">
-        <p class="section-label">rules</p>
-        <ol id="rulesList" class="rules-list">
-          <li>move 1 square in any direction.</li>
-          <li>blue gets 1 opening move; later turns get 2.</li>
-          <li>white squares become your color.</li>
-          <li>capture only when your piece wins.</li>
-          <li>first to <strong>41</strong> squares wins.</li>
-        </ol>
-      </section>
     </aside>
   </main>
 
@@ -577,6 +580,21 @@
       <div class="winner-actions">
         <button id="playAgainBtn" class="btn primary" type="button">play again</button>
         <button id="winnerMenuBtn" class="btn" type="button">menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rulesOverlay" class="winner-overlay" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+    <div class="winner-panel" style="max-width: 480px; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+        <h3 id="rulesTitle" style="margin: 0; font-size: 1.25rem; font-weight: 850; letter-spacing: .05em; text-transform: uppercase;">rules</h3>
+        <button id="closeRulesBtn" class="small-btn" type="button" style="border: 0; background: transparent; font-size: 1.5rem; padding: 0 8px; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+      <ol id="rulesList" class="rules-list" style="margin-left: 20px; line-height: 1.6; font-size: 0.98rem; padding-left: 0;">
+        <!-- Filled dynamically -->
+      </ol>
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+        <button id="closeRulesBtn2" class="btn primary" type="button">close</button>
       </div>
     </div>
   </div>
@@ -619,6 +637,11 @@
       const rulesListEl = byId('rulesList');
       const restartBtn = byId('restartBtn');
       const menuBtn = byId('menuBtn');
+      const copyLogsBtn = byId('copyLogsBtn');
+      const rulesOverlay = byId('rulesOverlay');
+      const showRulesBtn = byId('showRulesBtn');
+      const closeRulesBtn = byId('closeRulesBtn');
+      const closeRulesBtn2 = byId('closeRulesBtn2');
       const playAgainBtn = byId('playAgainBtn');
       const winnerMenuBtn = byId('winnerMenuBtn');
       const winnerOverlay = byId('winnerOverlay');
@@ -751,6 +774,7 @@
           ruleset,
           lastMove: null, message: 'Blue starts. Select a piece.',
           playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v6' : 'bot') : 'red' },
+          moveHistory: [],
         };
         winnerOverlay.classList.remove('show');
         render();
@@ -850,6 +874,38 @@
 
       function coordinate(r, c) { return `${String.fromCharCode(65 + r)}${c + 1}`; }
 
+      function copyGameLogs() {
+        if (!state.moveHistory || state.moveHistory.length === 0) {
+          alert('No moves have been made yet.');
+          return;
+        }
+        let logText = `Rock Paper Scissors Strategy Match Log\n`;
+        logText += `Mode: ${state.mode}\n`;
+        logText += `Ruleset: ${state.ruleset.toUpperCase()}\n`;
+        logText += `---------------------------------------\n`;
+        state.moveHistory.forEach((m, idx) => {
+          const playerLabel = state.playerNames[m.player] || m.player;
+          const pieceLabel = LABELS[m.piece] || m.piece;
+          const fromCoord = coordinate(m.from.r, m.from.c);
+          const toCoord = coordinate(m.to.r, m.to.c);
+          const actionText = m.captured 
+            ? `captured ${LABELS[m.captured].toLowerCase()}` 
+            : `moved`;
+          logText += `${idx + 1}. Turn ${m.turnNumber} - ${playerLabel}: ${fromCoord} → ${toCoord} (${pieceLabel}) ${actionText}\n`;
+        });
+        navigator.clipboard.writeText(logText).then(() => {
+          const btn = byId('copyLogsBtn');
+          if (btn) {
+            const originalText = btn.textContent;
+            btn.textContent = 'copied!';
+            setTimeout(() => { btn.textContent = originalText; }, 1500);
+          }
+        }).catch(err => {
+          console.error('Failed to copy logs', err);
+          alert('Failed to copy game logs to clipboard.');
+        });
+      }
+
       function canAct() {
         if (state.gameOver || state.botThinking || online.busy) return false;
         if (state.mode === 'bot') return state.current === 'blue';
@@ -933,6 +989,15 @@
         target.piece = moving;
         if (target.territory === null) target.territory = moving.owner;
         state.lastMove = { from: { ...from }, to: { ...to }, captured: captured?.type ?? null };
+        if (!state.moveHistory) state.moveHistory = [];
+        state.moveHistory.push({
+          turnNumber: state.turnNumber,
+          player: state.current,
+          from: { ...from },
+          to: { ...to },
+          piece: moving.type,
+          captured: captured?.type ?? null
+        });
         state.selected = null;
         state.movesLeft--;
         state.message = captured ? `${LABELS[moving.type]} captured ${LABELS[captured.type].toLowerCase()}.` : `${LABELS[moving.type]} moved to ${coordinate(to.r, to.c)}.`;
@@ -1535,6 +1600,7 @@
           winReason: '',
           lastMove: null,
           playerNames: { blue: blueName, red: redName },
+          moveHistory: [],
         };
       }
 
@@ -1600,6 +1666,7 @@
           winReason: state.winReason || '',
           lastMove: state.lastMove ? JSON.parse(JSON.stringify(state.lastMove)) : null,
           playerNames: { ...state.playerNames },
+          moveHistory: Array.isArray(state.moveHistory) ? [...state.moveHistory] : [],
         };
       }
 
@@ -1625,6 +1692,7 @@
           mode: 'multiplayer',
           lastMove: snapshot.lastMove || null,
           playerNames: { ...snapshot.playerNames },
+          moveHistory: Array.isArray(snapshot.moveHistory) ? [...snapshot.moveHistory] : [],
           message: snapshot.gameOver
             ? snapshot.winReason
             : snapshot.current === online.color
@@ -1753,6 +1821,15 @@
         target.piece = moving;
         if (target.territory === null) target.territory = moving.owner;
         state.lastMove = { from: { ...from }, to: { ...to }, captured: captured?.type ?? null };
+        if (!state.moveHistory) state.moveHistory = [];
+        state.moveHistory.push({
+          turnNumber: state.turnNumber,
+          player: state.current,
+          from: { ...from },
+          to: { ...to },
+          piece: moving.type,
+          captured: captured?.type ?? null
+        });
         state.selected = null;
         state.movesLeft--;
         state.message = captured
@@ -1831,6 +1908,18 @@
       usernameInput.addEventListener('keydown', event => { if (event.key === 'Enter' && selectedMode === 'multiplayer') joinMultiplayer(); });
       restartBtn.addEventListener('click', () => resetLocalGame(state.mode, state.ruleset));
       menuBtn.addEventListener('click', () => state.mode === 'multiplayer' ? leaveOnlineGame() : showStartScreen());
+      copyLogsBtn.addEventListener('click', copyGameLogs);
+      showRulesBtn.addEventListener('click', () => {
+        rulesOverlay.classList.add('show');
+      });
+      const hideRules = () => {
+        rulesOverlay.classList.remove('show');
+      };
+      closeRulesBtn.addEventListener('click', hideRules);
+      closeRulesBtn2.addEventListener('click', hideRules);
+      rulesOverlay.addEventListener('click', (e) => {
+        if (e.target === rulesOverlay) hideRules();
+      });
       leaveLobbyBtn.addEventListener('click', leaveMultiplayer);
 
       onlineList.addEventListener('click', event => {
