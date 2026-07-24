@@ -140,7 +140,22 @@
     .turn-dot { width: 11px; height: 11px; border: 2px solid var(--ink); border-radius: 50%; flex: 0 0 auto; background: var(--blue); }
     .moves-line { margin-top: 6px; color: var(--muted); font-size: .92rem; }
     .button-row { display: flex; gap: 8px; margin-top: 11px; }
-    .game-actions { flex-wrap: wrap; }
+    .game-actions {
+      container-type: inline-size;
+      flex-wrap: nowrap;
+      gap: clamp(4px, 3cqw, 8px);
+    }
+    .game-actions .btn {
+      min-width: 0;
+      padding: clamp(5px, 3cqw, 8px) clamp(7px, 4cqw, 12px);
+      font-size: clamp(.7rem, 6cqw, 1rem);
+      white-space: nowrap;
+    }
+    .game-actions .circle-btn {
+      width: clamp(28px, 16cqw, 36px);
+      height: clamp(28px, 16cqw, 36px);
+      padding: 0;
+    }
     .btn, .mode-button, .small-btn {
       appearance: none;
       border: 2px solid var(--ink);
