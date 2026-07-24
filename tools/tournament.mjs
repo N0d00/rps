@@ -17,6 +17,7 @@ const ALL_BOTS = [
   { id: 'rps-v3-engine', label: 'rps_v3_engine.wasm' },
   { id: 'rps-v4-engine', label: 'rps_v4_engine.wasm' },
   { id: 'rps-v5-engine', label: 'rps_v5_engine.wasm' },
+  { id: 'rps-v6-engine', label: 'rps_v6_engine.wasm' },
 ];
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -289,6 +290,7 @@ async function loadWasm(botId) {
     'rps-v3-engine': 'rps_v3_engine.wasm',
     'rps-v4-engine': 'rps_v4_engine.wasm',
     'rps-v5-engine': 'rps_v5_engine.wasm',
+    'rps-v6-engine': 'rps_v6_engine.wasm',
   };
   const filename = filenames[botId];
   if (!filename) throw new Error(`Unknown WASM bot: ${botId}`);

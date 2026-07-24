@@ -750,7 +750,7 @@
           turnNumber: 1, gameOver: false, botThinking: false, mode,
           ruleset,
           lastMove: null, message: 'Blue starts. Select a piece.',
-          playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v5' : 'bot') : 'red' },
+          playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v6' : 'bot') : 'red' },
         };
         winnerOverlay.classList.remove('show');
         render();
@@ -1095,7 +1095,7 @@
 
       function initializeV2Bot() {
         if (!v2BotLoadPromise) {
-          v2BotLoadPromise = globalThis.RPSV2Wasm.loadEngine('./rps_v5_engine.wasm')
+          v2BotLoadPromise = globalThis.RPSV2Wasm.loadEngine('./rps_v6_engine.wasm')
             .then(runtime => (v2BotRuntime = runtime));
         }
         return v2BotLoadPromise;
