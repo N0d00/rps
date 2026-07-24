@@ -750,7 +750,7 @@
           turnNumber: 1, gameOver: false, botThinking: false, mode,
           ruleset,
           lastMove: null, message: 'Blue starts. Select a piece.',
-          playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v5 (superhuman)' : 'bot') : 'red' },
+          playerNames: { blue: 'blue', red: mode === 'bot' ? (ruleset === 'v2' ? 'bot v5' : 'bot') : 'red' },
         };
         winnerOverlay.classList.remove('show');
         render();
