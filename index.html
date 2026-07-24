@@ -135,8 +135,6 @@
     .turn-line { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 850; }
     .turn-dot { width: 11px; height: 11px; border: 2px solid var(--ink); border-radius: 50%; flex: 0 0 auto; background: var(--blue); }
     .moves-line { margin-top: 6px; color: var(--muted); font-size: .92rem; }
-    .status-text { color: var(--muted); font-size: .9rem; line-height: 1.35; min-height: 2.45em; }
-
     .button-row { display: flex; gap: 8px; margin-top: 11px; }
     .game-actions { flex-wrap: wrap; }
     .btn, .mode-button, .small-btn {
@@ -153,6 +151,8 @@
     .btn:active, .mode-button:active, .small-btn:active { transform: translateY(1px); }
     .btn.primary, .small-btn.primary { background: var(--ink); color: var(--primary-text); }
     .btn.danger, .small-btn.danger { color: var(--red-deep); border-color: var(--red-deep); }
+    .resign-button { background: #fff; color: #172033; border-color: #172033; }
+    .resign-button:hover { background: #f5f7fa; }
     .small-btn { padding: 5px 9px; font-size: .82rem; }
     .circle-btn {
       display: inline-flex;
@@ -253,10 +253,10 @@
     .cell { z-index: 1; }
 
     .chat-drawer {
-      position: fixed; inset: 0 auto 0 0; z-index: 25; width: min(340px, calc(100vw - 24px));
+      position: fixed; inset: 0 0 0 auto; z-index: 25; width: min(340px, calc(100vw - 24px));
       display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--surface);
-      border-right: 3px solid var(--ink); box-shadow: 10px 0 28px rgba(0,0,0,.16);
-      transform: translateX(-102%); transition: transform .18s ease;
+      border-left: 3px solid var(--ink); box-shadow: -10px 0 28px rgba(0,0,0,.16);
+      transform: translateX(102%); transition: transform .18s ease;
     }
     .chat-drawer.open { transform: translateX(0); }
     .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px; border-bottom: 2px solid var(--ink); }
@@ -561,15 +561,13 @@
         <div class="match-line"><span class="dim">last</span><span id="lastMoveLabel" class="strong">none</span></div>
         <div style="margin-top: 10px;"><button id="copyLogsBtn" class="small-btn" type="button" style="width: 100%;">copy logs</button></div>
       </section>
-      <section class="section">
-        <p class="section-label">status</p>
-        <div id="statusLine" class="status-text" aria-live="polite">blue starts. select a piece.</div>
+      <section class="section" aria-label="Game controls">
+        <div id="statusLine" hidden aria-live="polite">blue starts. select a piece.</div>
         <div class="button-row game-actions" style="align-items: center;">
-          <button id="restartBtn" class="btn" type="button">restart</button>
           <button id="menuBtn" class="btn" type="button">menu</button>
           <button id="showRulesBtn" class="btn circle-btn" type="button" aria-label="Show rules">?</button>
           <button id="chatToggleBtn" class="btn circle-btn chat-toggle" type="button" aria-label="Open game chat" aria-expanded="false">&#128172;<span id="chatBadge" class="chat-badge">0</span></button>
-          <button id="resignBtn" class="small-btn danger" type="button">resign</button>
+          <button id="resignBtn" class="small-btn resign-button" type="button">resign</button>
         </div>
       </section>
     </aside>
@@ -671,7 +669,6 @@
       const modeLabelEl = byId('modeLabel');
       const rulesetLabelEl = byId('rulesetLabel');
       const rulesListEl = byId('rulesList');
-      const restartBtn = byId('restartBtn');
       const menuBtn = byId('menuBtn');
       const copyLogsBtn = byId('copyLogsBtn');
       const rulesOverlay = byId('rulesOverlay');
@@ -1008,8 +1005,8 @@
         const currentName = state.playerNames?.[state.current] || PLAYER_NAME[state.current].toLowerCase();
         turnTextEl.innerHTML = `<span class="turn-dot" style="background:${PLAYER_COLOR[state.current]}"></span>${currentName}'s turn`;
         movesTextEl.textContent = state.botThinking ? 'bot is thinking…' : online.busy ? 'sending move…' : `${state.movesLeft} move${state.movesLeft === 1 ? '' : 's'} left`;
+        movesTextEl.style.display = state.ruleset === 'v2' ? 'none' : '';
         lastMoveLabelEl.textContent = state.lastMove ? `${coordinate(state.lastMove.from.r, state.lastMove.from.c)} → ${coordinate(state.lastMove.to.r, state.lastMove.to.c)}` : 'none';
-        restartBtn.style.display = state.mode === 'multiplayer' ? 'none' : '';
         menuBtn.textContent = state.mode === 'multiplayer' ? 'lobby' : 'menu';
         resignBtn.disabled = state.gameOver;
       }
@@ -2087,7 +2084,6 @@
       rulesetButtons.forEach(btn => btn.addEventListener('click', () => setRulesetButtons(btn.dataset.ruleset)));
       startBtn.addEventListener('click', startSelectedMode);
       usernameInput.addEventListener('keydown', event => { if (event.key === 'Enter' && selectedMode === 'multiplayer') joinMultiplayer(); });
-      restartBtn.addEventListener('click', () => resetLocalGame(state.mode, state.ruleset));
       menuBtn.addEventListener('click', () => state.mode === 'multiplayer' ? leaveOnlineGame() : showStartScreen());
       copyLogsBtn.addEventListener('click', copyGameLogs);
       chatToggleBtn.addEventListener('click', () => setChatOpen(!chatOpen));
